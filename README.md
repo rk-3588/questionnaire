@@ -1,5 +1,7 @@
 # RHINE LAB · ANALYSIS OS
 
+> 本项目基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 二次开发，用于构建婚恋意愿调查与匿名档案系统。
+
 **把莱茵生命的终端，做成可以操作的三维界面。**
 
 **[在线体验 → rhine.lubeiluchen.cc](https://rhine.lubeiluchen.cc/)**
