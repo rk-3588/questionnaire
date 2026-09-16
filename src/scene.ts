@@ -683,7 +683,13 @@ export class ArchiveScene {
       ? selectionCell(index, this.selectedCell, navigation)
       : { lane: canonical.lane, row: canonical.row };
     const changed = !sameCell(cell, this.selectedCell);
-    if (this.looping && changed && this.loaded && this.lift.value > 0.0001) {
+    // During a fast free-plane drag or inertial coast, many logical cells can
+    // be crossed in a single pointer frame. Creating a full cloned model and
+    // CanvasTexture for every intermediate cell overwhelms the GPU and makes
+    // the 3D scene appear frozen while DOM labels keep updating. Intermediate
+    // cells only need selection/state updates; retain the visual outgoing copy
+    // for deliberate (click/keyboard) selection changes.
+    if (this.looping && changed && !this.navigatingDrag && this.loaded && this.lift.value > 0.0001) {
       const group = this.model.clone(true);
       const label = group.children[group.children.length - 1] as THREE.Mesh;
       const canvas = document.createElement("canvas");
@@ -902,6 +908,18 @@ export class ArchiveScene {
     return axis === "lane"
       ? (coordinate - 2) * COLUMN_SPACING
       : -2.17 - (coordinate - 15.5) * ROW_SPACING;
+  }
+  /** Recover the render state after an invalid frame without losing selection. */
+  recoverFromFrameError() {
+    this.stopMomentum();
+    this.dragTrack = null;
+    this.holdingArchive = false;
+    this.dragging = false;
+    this.columnCamera.value = Number.isFinite(this.columnCamera.value) ? this.columnCamera.value : this.trackPosition("lane", this.selectedCell.lane);
+    this.rail.value = Number.isFinite(this.rail.value) ? this.rail.value : this.trackPosition("row", this.selectedCell.row);
+    this.columnCamera.velocity = 0;
+    this.rail.velocity = 0;
+    this.renderState.invalidate();
   }
   private navigatePlane(coordinate: DragPosition) {
     const goal = { lane: Math.round(coordinate.lane), row: Math.round(coordinate.row) };
@@ -1195,8 +1213,14 @@ export class ArchiveScene {
     if (momentum) {
       momentum.motion.step(Math.min(Math.max(time - momentum.time, 0), 0.25));
       momentum.time = time;
-      this.navigatePlane(momentum.motion.value);
-      this.lastInteraction = time;
+      const position = momentum.motion.value;
+      const velocity = momentum.motion.velocity;
+      if (![position.lane, position.row, velocity.lane, velocity.row].every(Number.isFinite)) {
+        this.recoverFromFrameError();
+      } else {
+        this.navigatePlane(position);
+        this.lastInteraction = time;
+      }
     }
     const hoverKey = !cinematic && this.hoverCell ? cellKey(this.hoverCell) : null;
     if (hoverKey && !this.hoverLifts.has(hoverKey)) this.hoverLifts.set(hoverKey, 0);

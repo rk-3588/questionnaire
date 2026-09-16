@@ -99,7 +99,7 @@ button {
   z-index: 5;
   line-height: 1;
   user-select: none;
-  width: 270px;
+  width: 430px;
   white-space: nowrap;
 }
 .brand h1 {
@@ -122,24 +122,29 @@ button {
   letter-spacing: 0;
   word-spacing: 0;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
 }
 .brand p b {
   font-weight: 750;
   letter-spacing: 3px;
 }
 .brand-analysis {
-  position: relative;
-  display: block;
-  width: 189px;
+  position: static;
+  display: inline-flex;
+  width: auto;
   height: 40px;
+  gap: 1px;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .brand-analysis > span {
-  position: absolute;
-  top: 0;
+  position: static;
+  display: inline-block;
   letter-spacing: 0;
   font-kerning: none;
 }
+.brand-analysis { font-size: 29px; letter-spacing: -0.5px; }
 .powered {
   position: absolute;
   right: 59px;

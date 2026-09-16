@@ -28,11 +28,14 @@ import {
   columnFiles,
   fileLocation,
 } from "./data";
+const staticArchiveRecords = records.map(record => ({ ...record, findings: [...record.findings] }));
 import { TerminalAudio } from "./audio";
 import { audioSettingsMarkup } from "./audio-settings";
 import { StartupGate } from "./startup";
 import { isWallpaper, wallpaperHost, wallpaperFrame, type WallpaperProperties } from "./wallpaper";
 import "./startup.css";
+import "./survey.css";
+import { SurveyTerminal, profileRadar } from "./survey";
 import "./wallpaper.css";
 import { Workbench } from "./workbench";
 let workbench: Workbench | undefined;
@@ -54,7 +57,8 @@ $("#stage").innerHTML = `
   <div id="boot-background" class="boot-background"><svg viewBox="0 0 1920 1080" preserveAspectRatio="none"><g fill="none" stroke="#fff" stroke-width="3"><path d="M-210 705C-45 705 182 704 247 567C337 377 99 306 4 435S27 680 169 631C309 584 227 314 279 111S568-113 568-113"/><path d="M1560-80C1374 114 1671 168 1601 323S1371 367 1431 480S1692 666 1559 787S1329 886 1498 1130"/><circle cx="1450" cy="648" r="346"/><circle cx="1450" cy="648" r="348"/></g></svg></div>
   <header class="brand">${brandHeading}</header>
   <nav class="system-nav" aria-label="系统导航">
-    <button data-action="search"><span class="nav-glyph">⌕</span> ARCHIVE INDEX <span class="key">/</span></button>
+    <button data-action="survey"><span class="nav-glyph">▱</span> QUESTIONNAIRE</button>
+    <button data-action="search"><span class="nav-glyph">⌕</span> RELATIONSHIP INDEX <span class="key">/</span></button>
     <button data-action="saved" aria-label="查看收藏档案" title="收藏档案">＋ SAVED <span id="saved-count">00</span></button>
     <button class="settings-button" data-action="settings" aria-label="系统设置" title="系统设置"><span class="settings-glyph" aria-hidden="true">◷</span><span class="settings-label">设置</span></button>
   </nav>
@@ -63,13 +67,13 @@ $("#stage").innerHTML = `
     <div class="access-text">ACCESS</div>
     <div class="boot-logo">${logo}</div>
     <div class="auth-status"><span>▪</span> <span id="auth-message"></span><i></i></div>
-    <div class="scan"><svg viewBox="0 0 1920 1080" aria-hidden="true"><g fill="none" stroke="#080a08" stroke-width="2" stroke-linecap="round"><path/><path stroke="#fff"/><path/><path/><path/><path/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="scan-core" cx="960" cy="540" r="5" fill="#080a08" stroke="none"/></g></svg><span>PERMISSION AUTHORIZED</span></div>
-    <div class="welcome"><div class="welcome-panel"></div><div class="welcome-heading">WELCOME TO</div><div class="welcome-company"><strong>RHINE LAB.LLC.</strong><strong class="welcome-highlight" aria-hidden="true">RHINE LAB.LLC.</strong></div><div class="welcome-database">INTERNAL DATABASE</div><div class="welcome-logo">${logo}</div></div>
+    <div class="scan"><svg viewBox="0 0 1920 1080" aria-hidden="true"><g fill="none" stroke="#080a08" stroke-width="2" stroke-linecap="round"><path/><path stroke="#fff"/><path/><path/><path/><path/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="scan-core" cx="960" cy="540" r="5" fill="#080a08" stroke="none"/></g></svg><span>CHOICE PROFILE AUTHORIZED</span></div>
+    <div class="welcome"><div class="welcome-panel"></div><div class="welcome-heading">WELCOME TO</div><div class="welcome-company"><strong>RELATIONSHIP LAB.</strong><strong class="welcome-highlight" aria-hidden="true">RELATIONSHIP LAB.</strong></div><div class="welcome-database">大学生婚恋意愿调查问卷</div><div class="welcome-logo">${logo}</div></div>
   </section>
   <svg id="inspection-marks" viewBox="0 0 1920 1080" aria-hidden="true"><path id="inspection-lines"/><g id="inspection-corners"></g><circle id="inspection-point" r="1.8"/></svg>
   <div id="inspection-text" aria-hidden="true">CONFIDENTIALITY:<strong>GENERAL BUSINESS USE</strong></div>
   <section id="archive-ui" class="archive-ui" aria-label="档案选择">
-    <div class="archive-callout"><div class="eyebrow">INTERNAL DATABASE <span>／</span> <span id="archive-category">机构档案</span></div><button class="file-title" data-action="open">FILE NUMBER: <span id="selected-id">X-<span id="selected-code">001</span></span><span class="file-open">↗</span></button><div class="callout-rule"><i></i></div><div class="file-summary"><span id="selected-title">莱茵生命</span><span id="selected-clearance">BUSINESS AREA</span></div><button class="read-file" data-action="open">ACCESS FILE <span>→</span></button></div>
+    <div class="archive-callout"><div class="eyebrow">RELATIONSHIP ARCHIVE <span>／</span> <span id="archive-category">共同生活</span></div><button class="file-title" data-action="open">PROFILE NUMBER: <span id="selected-id">X-<span id="selected-code">001</span></span><span class="file-open">↗</span></button><div class="callout-rule"><i></i></div><div class="file-summary"><span id="selected-title">共同选择</span><span id="selected-clearance">SHARED FUTURE</span></div><button class="read-file" data-action="open">READ PROFILE <span>→</span></button></div>
     <div id="hover-label" class="hover-label" hidden>X-<span id="hover-code">001</span> / <span id="hover-title"></span></div>
     <div class="archive-counter"><span class="tiny-label">ARCHIVE / SELECT</span><div><span id="selected-number">01</span><i>/</i><span class="count-total">12</span></div></div>
     <div class="archive-navigation"><button data-action="prev" aria-label="上一个档案">↑</button><div id="file-ticks" class="file-ticks"></div><button data-action="next" aria-label="下一个档案">↓</button></div>
@@ -81,11 +85,12 @@ $("#stage").innerHTML = `
     <div class="object-caption"><span id="object-id">NO.001</span><div>INTERNAL DATABASE</div><small>DRAG TO INSPECT <span>↔</span></small><button class="viewer-open" data-action="model-viewer">360° 查看文档模型 <span>↗</span></button></div>
     <article id="detail-content" class="detail-content"></article>
   </section>
+  <section id="survey-ui" aria-label="问卷终端" hidden></section>
   <div class="powered">POWERED BY <b>RHINE LAB</b><i></i></div>
   <footer class="system-footer"><span><i class="status-light"></i> SESSION AUTHORIZED${isWallpaper ? '<button type="button" class="three-toggle" data-action="toggle-three" aria-pressed="true" title="卸载三维模型，保留 2D 界面">3D 开启</button>' : ''}</span><span>JOYCE MOORE <i>／</i> <span id="clock">00:00:00</span></span><button data-action="replay" title="重播启动流程">REINITIALIZE ↗</button></footer>
   <div id="pwa-update-notice" class="pwa-update-notice" role="status" hidden><span>新版本已就绪</span><button data-pwa-action="update">更新并重启 ↻</button></div>
   <div id="modal-root"></div><div id="toast" class="toast" role="status"></div>
-  <div id="loading" class="loading"><div class="loading-mark">${logo}</div><span>CONNECTING TO INTERNAL DATABASE</span><i></i></div>
+  <div id="loading" class="loading"><div class="loading-mark">${logo}</div><span>CONNECTING TO RELATIONSHIP ARCHIVE</span><i></i></div>
 `;
 
 $("#boot-background").insertAdjacentHTML(
@@ -93,6 +98,35 @@ $("#boot-background").insertAdjacentHTML(
   '<div class="boot-white"></div>',
 );
 const bootSequence = new BootSequence($("#stage"));
+const survey = new SurveyTerminal($("#survey-ui"), tone => audio.play(tone));
+$("#survey-ui").addEventListener("survey:return-system", () => {
+  surveyOpened = false;
+  survey.hide();
+  $("#survey-ui").inert = true;
+  $("#archive-ui").inert = false;
+  $("#archive-ui").setAttribute("aria-hidden", "false");
+  setMode("archive");
+  notify("档案已封存，已返回 SYSTEM");
+  $(".read-file").focus({ preventScroll: true });
+});
+// Keep the recovery entry independent from the archive document dispatcher.
+$("[data-action=survey]").addEventListener("click", event => {
+  event.stopPropagation();
+  enterSurvey();
+  audio.play("confirm");
+});
+function hydrateArchivePool() {
+  const profiles = survey.getProfiles();
+  staticArchiveRecords.forEach((record, index) => { records[index] = { ...record, findings: [...record.findings], sourceKind: "static" }; });
+  profiles.forEach((profile, index) => {
+    if (index >= records.length) return;
+    const base = records[index];
+    records[index] = { ...base, id: profile.id, title: profile.label, en: "RHINE LAB", department: profile.gender, category: archiveColumns[index % archiveColumns.length], date: new Date(profile.createdAt).toLocaleString("zh-CN"), lead: profile.id, clearance: "AUTHORIZED", abstract: profile.message, findings: [], source: "#", sourceKind: "survey" };
+  });
+  if (profiles.length) { updateSelection(); scene?.select(selected); }
+}
+queueMicrotask(hydrateArchivePool);
+$("#survey-ui").addEventListener("survey:pool-updated", hydrateArchivePool);
 $("#viewport").insertAdjacentHTML("beforeend", '<button class="mobile-entry" data-action="skip">进入档案 <span>→</span></button>');
 
 type Mode = "boot" | "archive" | "detail";
@@ -101,6 +135,7 @@ let mode: Mode = "boot",
   bootStart = 0,
   lastStep = "",
   ready = false;
+let surveyOpened = false;
 let modal: "search" | "saved" | "settings" | null = null,
   searchQuery = "",
   filter = "全部档案";
@@ -366,6 +401,16 @@ function setMode(next: Mode) {
     if (!modal && next === "archive") $(".read-file").focus({ preventScroll: true });
   }
   $("#detail-ui").inert = next !== "detail" || Boolean(modal);
+  // Every normal exit from the opening must lead to the questionnaire. Some
+  // paths (reduced motion, keyboard exit, or a compatibility fallback) switch
+  // straight to archive and never reach the final boot-frame callback.
+  if (next === "archive" && previousMode === "boot" && started && !reviewEntry) {
+    surveyOpened = true;
+    $("#archive-ui").inert = true;
+    $("#archive-ui").setAttribute("aria-hidden", "true");
+    $("#survey-ui").inert = false;
+    survey.show();
+  }
   scene?.setMode(next === "boot" ? "hidden" : next);
   if (next !== "boot") {
     bootSequence.reset();
@@ -381,6 +426,14 @@ function setMode(next: Mode) {
       $("#detail-content").inert = false;
     }
   }
+}
+function enterSurvey() {
+  surveyOpened = true;
+  setMode("archive");
+  $("#archive-ui").inert = true;
+  $("#archive-ui").setAttribute("aria-hidden", "true");
+  $("#survey-ui").inert = false;
+  survey.show();
 }
 function select(index: number, navigation?: ArchiveNavigation) {
   selected = (index + records.length) % records.length;
@@ -458,6 +511,9 @@ function replayBoot(forcePreview = false) {
   closeModal(() => replayBootAfterModal(forcePreview));
 }
 function replayBootAfterModal(forcePreview: boolean) {
+  surveyOpened = false;
+  survey.hide();
+  $("#survey-ui").inert = true;
   bootStart = performance.now() / 1000 - 1.76;
   frozenTime = null;
   lastStep = "";
@@ -499,13 +555,17 @@ function toggleSaved() {
 function renderDetail() {
   tabTransition.cancel();
   const r = records[selected];
+  const profile = survey.getProfile(r.id) ?? survey.getCurrentProfile();
+  const detailName = profile?.label || r.title;
+  const detailId = profile?.id || r.id;
+  const detailDate = profile ? new Date(profile.createdAt).toLocaleString("zh-CN") : r.date;
   $("#object-id").textContent = "NO." + String(selected + 1).padStart(3, "0");
   $("#detail-content").innerHTML = `
-  <div class="detail-kicker"><span>FILE ${r.id}</span><span>${escapeHtml(r.clearance)}</span></div>
-  <h2>${escapeHtml(r.en)}</h2><div class="detail-title-cn">${escapeHtml(r.title)}<span>${escapeHtml(r.category)}</span></div>
+  <div class="detail-kicker"><span>FILE ${escapeHtml(detailId)}</span><span>RHINE LAB</span></div>
+  <h2>RHINE LAB</h2><div class="detail-title-cn">${escapeHtml(detailName)}<span>婚恋画像</span></div>
   <div class="detail-rule"></div>
-  <dl class="metadata"><div><dt>DEPARTMENT / 科室</dt><dd>${escapeHtml(r.department)}</dd></div><div><dt>COLLECTION / 编目范围</dt><dd>${escapeHtml(r.date)}</dd></div><div><dt>RELATED / 相关人物</dt><dd>${escapeHtml(r.lead)}</dd></div><div><dt>STATUS / 状态</dt><dd><i></i>${r.clearance === "RESTRICTED" ? "目录访问" : "已归档 · 可读取"}</dd></div></dl>
-  <div class="detail-tabs" role="tablist"><button id="tab-overview" class="active" role="tab" aria-controls="tab-panel" aria-selected="true" data-tab="overview">01 <span>概述</span></button><button id="tab-notes" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="notes">02 <span>研究记录</span></button><button id="tab-history" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="history">03 <span>访问日志</span></button><i class="tab-indicator" aria-hidden="true"></i></div>
+  <dl class="metadata"><div><dt>GENDER / 性别</dt><dd>${escapeHtml(profile?.gender ?? "不愿透露")}</dd></div><div><dt>归档时间</dt><dd>${escapeHtml(detailDate)}</dd></div><div><dt>档案编号</dt><dd>${escapeHtml(detailId)}</dd></div><div><dt>STATUS / 状态</dt><dd><i></i>已归档 · 可读取</dd></div></dl>
+  <div class="detail-tabs" role="tablist"><button id="tab-overview" class="active" role="tab" aria-controls="tab-panel" aria-selected="true" data-tab="overview">01 <span>留言</span></button><button id="tab-notes" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="notes">02 <span>雷达图</span></button><button id="tab-history" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="history">03 <span>访问日志</span></button><i class="tab-indicator" aria-hidden="true"></i></div>
   <div id="tab-panel" class="tab-panel" role="tabpanel">${overview()}</div>
   <div class="detail-actions"><button class="solid-button" data-action="bookmark">${saved.has(r.id) ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE"}<span>${saved.has(r.id) ? "已收藏" : "收藏档案"}</span></button><a class="export-button" href="${assetUrl(`archives/RHINE-LAB-${r.id}.txt`)}" download="RHINE-LAB-${r.id}.txt" aria-label="导出 ${r.id} 档案">EXPORT <span>↓</span></a></div>
   <div class="detail-footnote"><a href="${escapeHtml(r.source)}" target="_blank" rel="noopener">设定参考 ↗</a><span>${String(selected + 1).padStart(3, "0")} / ${String(records.length).padStart(3, "0")}</span></div>`;
@@ -515,7 +575,8 @@ function renderDetail() {
   setTab(activeTab, false);
 }
 function overview() {
-  return `<div class="panel-label">ABSTRACT / 摘要</div><p>${escapeHtml(records[selected].abstract)}</p>`;
+  const profile = survey.getProfile(records[selected].id) ?? survey.getCurrentProfile();
+  return `<div class="panel-label">MESSAGE / 留言</div><p class="detail-message">“${escapeHtml(profile?.message ?? "愿你在选择中保持诚实，也保留温柔。")}"</p>`;
 }
 function setTab(tab: string, sound = true) {
   if (sound && tab === activeTab) return;
@@ -536,7 +597,7 @@ function setTab(tab: string, sound = true) {
     tab === "overview"
       ? overview()
       : tab === "notes"
-        ? `<div class="panel-label">RESEARCH NOTES / 研究记录</div><ol class="research-notes">${r.findings.map((f, i) => `<li><span>${String(i + 1).padStart(2, "0")}</span>${escapeHtml(f)}</li>`).join("")}</ol>`
+        ? (survey.getProfile(r.id) ? `<div class="panel-label">PROFILE RADAR / 六维画像</div>${profileRadar(survey.getProfile(r.id)!.answers)}` : `<div class="panel-label">PROFILE RADAR / 六维画像</div><p class="log-note">当前档案尚无问卷画像。</p>`)
         : `<div class="panel-label">ACCESS LOG / 本次访问</div>${accessLog
             .filter((entry) => entry.id === r.id)
             .slice(0, 4)
@@ -737,7 +798,11 @@ document.addEventListener("click", (e) => {
   if (action === "toggle-three") { void toggleThree(); return; }
   if (action === "sound-preview") audio.play("confirm");
   if (action === "skip") {
-    setMode("archive");
+    enterSurvey();
+    audio.play("confirm");
+  }
+  if (action === "survey") {
+    enterSurvey();
     audio.play("confirm");
   }
   if (action === "prev") stepFile(-1);
@@ -923,7 +988,7 @@ function bootFrame(t: number) {
     lift = ease((t - 26) / 1.8),
     zoom = 0.55 * ease((t - 27.3) / 1.65) + 0.45 * ease((t - 29.0) / 5.0);
   if (t >= 35) {
-    setMode("detail");
+    enterSurvey();
     return undefined;
   }
   return { reveal, lift, zoom, time: t };
@@ -954,8 +1019,22 @@ function frame(ms: number) {
       : undefined;
   wallpaperEffects?.update(time, prefs.reduced);
   // The calibrated 2D opening fully covers the scene until array entry.
-  if (!viewer?.isOpen && (!cinema || cinema.time >= 21.9)) scene?.update(time, cinema);
-  viewer?.update(time);
+  if (!viewer?.isOpen && (!cinema || cinema.time >= 21.9)) {
+    try {
+      scene?.update(time, cinema);
+    } catch (error) {
+      // A malformed high-velocity drag must not terminate RAF permanently;
+      // recover the 3D state while keeping the DOM terminal responsive.
+      console.error("Archive scene frame recovered", error);
+      scene?.recoverFromFrameError();
+    }
+  }
+  try {
+    viewer?.update(time);
+  } catch (error) {
+    console.error("Viewer frame recovered", error);
+    viewer?.close();
+  }
   if (threeState === "closing" && scene?.presentationHidden) releaseThree();
   playground?.position();
   if (scene && mode === "detail") {
@@ -1097,10 +1176,10 @@ async function start() {
       loadBootWebfonts(),
       // With unicode-range faces, preload the opening's actual characters,
       // not every font shard. Other archive text loads on demand.
-      document.fonts.load("300 20px MiSans", "ACCESS WELCOME TO INTERNAL DATABASE"),
+      document.fonts.load("300 20px MiSans", "ACCESS WELCOME TO 大学生婚恋意愿调查问卷"),
       document.fonts.load("400 20px MiSans", "身份信息确认请求已接收开始处理权限验证通过欢迎访问莱茵生命内部资料档案编号保密级别商业区选择档案：0123456789 JOYCE MOORE"),
       document.fonts.load("600 20px MiSans", "SYNTHESIZE INFORMATION ANALYSIS OS"),
-      document.fonts.load("700 20px MiSans", "RHINE LAB WELCOME TO INTERNAL DATABASE"),
+      document.fonts.load("700 20px MiSans", "RHINE LAB WELCOME TO 大学生婚恋意愿调查问卷"),
     ]);
     if (scene) bindScene(scene);
     savePrefs();
@@ -1137,6 +1216,12 @@ function completeStartup(silent: boolean) {
   if (reviewParams.get("scene") === "archive" || (prefs.reduced && !reviewParams.has("time"))) setMode("archive");
   if (reviewParams.get("scene") === "detail") setMode("detail");
   if (isWallpaper && wallpaperHost()?.properties.boot?.value === false) setMode("archive");
+  // Safety net for browsers that pause or short-circuit the calibrated RAF
+  // timeline: the normal entry should never strand the user on SYSTEM without
+  // first completing the questionnaire.
+  if (!reviewEntry) window.setTimeout(() => {
+    if (started && !surveyOpened && (mode === "boot" || mode === "archive")) enterSurvey();
+  }, 36000);
   $("#stage").inert = false;
   $(".mobile-entry").inert = false;
   loading.classList.add("loaded");

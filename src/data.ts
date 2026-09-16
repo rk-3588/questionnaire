@@ -12,6 +12,7 @@ export interface ArchiveRecord {
   abstract: string;
   findings: string[];
   source: string;
+  sourceKind?: "survey" | "static";
 }
 
 export const records: ArchiveRecord[] = content.records;

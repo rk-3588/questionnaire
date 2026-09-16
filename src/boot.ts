@@ -114,7 +114,7 @@ export class BootSequence {
     for (const [selector, key, text] of [
       [".scan > span", "permission", "PERMISSION AUTHORIZED"],
       [".welcome-heading", "welcome", "WELCOME TO"],
-      [".welcome-database", "database", "INTERNAL DATABASE"],
+      [".welcome-database", "database", "大学生婚恋意愿调查问卷"],
     ] as const) new BootLettering(this.el(selector), [key]).setText(text);
     this.companyInk.forEach((el) =>
       new BootLettering(el.querySelector("span")!, ["company"]).setText("RHINE LAB.LLC."),
