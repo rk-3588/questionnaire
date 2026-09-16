@@ -40,6 +40,7 @@ const DEMO: Submission[] = [
 ];
 
 const STORE = "rhine-survey-submissions";
+const DEFAULT_MESSAGE = "愿你在选择中保持诚实，也保留温柔。";
 // The public site is hosted on Cloudflare Pages while the anonymous response
 // service is reverse-proxied on the survey host.  Keep an environment override
 // so a same-origin Function or a local deployment can replace this endpoint.
@@ -49,8 +50,11 @@ const normalizeGender = (value: unknown): SurveyGender => value === "♂" || val
 const normalizeSubmission = (value: unknown): Submission | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const item = value as Partial<Submission>;
-  if (typeof item.id !== "string" || typeof item.createdAt !== "string" || typeof item.label !== "string" || typeof item.message !== "string" || !Array.isArray(item.answers) || item.answers.length !== QUESTIONS.length || !item.answers.every(answer => Number.isInteger(answer) && answer >= 1 && answer <= 5)) return undefined;
-  return { id: item.id, createdAt: item.createdAt, answers: item.answers as SurveyAnswer[], label: item.label, message: item.message, gender: normalizeGender(item.gender) };
+  if (typeof item.id !== "string" || typeof item.createdAt !== "string" || typeof item.label !== "string" || !Array.isArray(item.answers) || item.answers.length !== QUESTIONS.length || !item.answers.every(answer => Number.isInteger(answer) && answer >= 1 && answer <= 5)) return undefined;
+  // Records created by the first server version only contain answers and a
+  // label. Retain them in the live archive rather than silently falling back
+  // to bundled demo entries when optional profile fields are absent.
+  return { id: item.id, createdAt: item.createdAt, answers: item.answers as SurveyAnswer[], label: item.label, message: typeof item.message === "string" ? item.message : DEFAULT_MESSAGE, gender: normalizeGender(item.gender) };
 };
 const read = (): Submission[] => {
   try {
@@ -112,7 +116,7 @@ export class SurveyTerminal {
   private async submit() {
     const id = `Q-${Math.floor(100 + Math.random() * 899)}`;
     const label = this.nickname || `访客·${Math.floor(1000 + Math.random() * 9000)}`;
-    this.current = { id, createdAt: new Date().toISOString(), answers: this.answers as SurveyAnswer[], label, message: this.message || "愿你在选择中保持诚实，也保留温柔。", gender: this.gender };
+    this.current = { id, createdAt: new Date().toISOString(), answers: this.answers as SurveyAnswer[], label, message: this.message || DEFAULT_MESSAGE, gender: this.gender };
     this.submissions = [this.current, ...this.submissions.filter(item => item.id !== id)];
     write(this.submissions);
     try {
