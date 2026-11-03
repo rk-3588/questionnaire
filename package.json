@@ -8,7 +8,10 @@
     "postinstall": "node scripts/patch-rolling-number.mjs",
     "predev": "node scripts/patch-rolling-number.mjs && node scripts/export-records.mjs",
     "dev": "vite --host 127.0.0.1",
-    "start:server": "node server/index.mjs",
+    "start:server": "node --experimental-strip-types server/index.mjs",
+    "check:survey": "node --experimental-strip-types --test scripts/check-survey.mjs",
+    "check:survey:browser": "node --experimental-strip-types scripts/check-survey-browser.mjs",
+    "export:questionnaire": "node --experimental-strip-types scripts/export-questionnaire.mjs",
     "prebuild": "node scripts/patch-rolling-number.mjs && node scripts/export-records.mjs && node scripts/prepare-webfonts.mjs",
     "check:content": "node --experimental-strip-types --test scripts/check-content.mjs",
     "check:viewport": "node --experimental-strip-types scripts/check-viewport.mjs",
@@ -26,9 +29,9 @@
   },
   "devDependencies": {
     "@types/three": "^0.183.0",
+    "playwright-core": "1.61.1",
     "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
   }
 }
-

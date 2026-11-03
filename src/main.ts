@@ -35,7 +35,8 @@ import { StartupGate } from "./startup";
 import { isWallpaper, wallpaperHost, wallpaperFrame, type WallpaperProperties } from "./wallpaper";
 import "./startup.css";
 import "./survey.css";
-import { SurveyTerminal, profileRadar } from "./survey";
+import { SurveyTerminal, downloadSubmission } from "./survey";
+import { profileResponsesMarkup, profileSummaryMarkup } from "./survey-view";
 import "./wallpaper.css";
 import { Workbench } from "./workbench";
 let workbench: Workbench | undefined;
@@ -85,7 +86,7 @@ $("#stage").innerHTML = `
     <div class="object-caption"><span id="object-id">NO.001</span><div>INTERNAL DATABASE</div><small>DRAG TO INSPECT <span>↔</span></small><button class="viewer-open" data-action="model-viewer">360° 查看文档模型 <span>↗</span></button></div>
     <article id="detail-content" class="detail-content"></article>
   </section>
-  <section id="survey-ui" aria-label="问卷终端" hidden></section>
+  <section id="survey-ui" aria-label="问卷终端" role="dialog" aria-modal="true" hidden></section>
   <div class="powered">POWERED BY <b>RHINE LAB</b><i></i></div>
   <footer class="system-footer"><span><i class="status-light"></i> SESSION AUTHORIZED${isWallpaper ? '<button type="button" class="three-toggle" data-action="toggle-three" aria-pressed="true" title="卸载三维模型，保留 2D 界面">3D 开启</button>' : ''}</span><span>JOYCE MOORE <i>／</i> <span id="clock">00:00:00</span></span><button data-action="replay" title="重播启动流程">REINITIALIZE ↗</button></footer>
   <div id="pwa-update-notice" class="pwa-update-notice" role="status" hidden><span>新版本已就绪</span><button data-pwa-action="update">更新并重启 ↻</button></div>
@@ -116,14 +117,19 @@ $("[data-action=survey]").addEventListener("click", event => {
   audio.play("confirm");
 });
 function hydrateArchivePool() {
+  const previousId = records[selected]?.id;
   const profiles = survey.getProfiles();
   staticArchiveRecords.forEach((record, index) => { records[index] = { ...record, findings: [...record.findings], sourceKind: "static" }; });
   profiles.forEach((profile, index) => {
     if (index >= records.length) return;
     const base = records[index];
-    records[index] = { ...base, id: profile.id, title: profile.label, en: "RHINE LAB", department: profile.gender, category: archiveColumns[index % archiveColumns.length], date: new Date(profile.createdAt).toLocaleString("zh-CN"), lead: profile.id, clearance: "AUTHORIZED", abstract: profile.message, findings: [], source: "#", sourceKind: "survey" };
+    records[index] = { ...base, id: profile.id, title: profile.label, en: "QUESTIONNAIRE", department: profile.gender, category: base.category, date: new Date(profile.createdAt).toLocaleString("zh-CN"), lead: profile.id, clearance: profile.schemaVersion === 2 ? "QUESTIONNAIRE V2" : "LEGACY QUESTIONNAIRE", abstract: profile.schemaVersion === 2 ? "新版问卷 · 分项回答" : profile.message, findings: [], source: "#", sourceKind: "survey" };
   });
-  if (profiles.length) { updateSelection(); scene?.select(selected); }
+  const previousIndex = records.findIndex(record => record.id === previousId);
+  if (previousIndex >= 0) selected = previousIndex;
+  updateSelection();
+  scene?.select(selected);
+  if (mode === "detail") renderDetail();
 }
 queueMicrotask(hydrateArchivePool);
 $("#survey-ui").addEventListener("survey:pool-updated", hydrateArchivePool);
@@ -245,6 +251,9 @@ let musicSuppressed = false;
 function configureAudio() { audio.configure({ ...prefs, music: prefs.music && !musicSuppressed }); }
 configureAudio();
 const reviewEntry = reviewParams.has("scene") || reviewParams.has("time") || reviewParams.get("review") === "1";
+// Explicit DOM review only; normal entry and frame-by-frame scene reviews keep
+// their original WebGL path. This also exercises the existing 2D fallback UI.
+const uiOnlyReview = reviewParams.get("review") === "1" && reviewParams.get("ui-only") === "1";
 let started = false;
 const loading = $("#loading");
 // The entry screen uses the actual viewport, including portrait phones; the
@@ -390,8 +399,8 @@ function setMode(next: Mode) {
   $("#boot").setAttribute("aria-hidden", String(next !== "boot"));
   $("#archive-ui").inert = next !== "archive" || Boolean(modal) || Boolean(workbench?.enabled);
   $("#archive-ui").setAttribute("aria-hidden", String(next !== "archive" || Boolean(workbench?.enabled)));
-  $(".system-nav").inert = next === "boot" || Boolean(modal);
-  $(".system-footer").inert = next === "boot" || Boolean(modal);
+  $(".system-nav").inert = next === "boot" || Boolean(modal) || surveyOpened;
+  $(".system-footer").inert = next === "boot" || Boolean(modal) || surveyOpened;
   if (next === "detail") {
     if (previousMode !== "detail") detailTransition.show(prefs.reduced);
   } else if (previousMode === "detail" || (next === "boot" && !$("#detail-ui").hidden)) {
@@ -409,12 +418,14 @@ function setMode(next: Mode) {
     $("#archive-ui").inert = true;
     $("#archive-ui").setAttribute("aria-hidden", "true");
     $("#survey-ui").inert = false;
+    $(".system-nav").inert = true;
+    $(".system-footer").inert = true;
     survey.show();
   }
   scene?.setMode(next === "boot" ? "hidden" : next);
   if (next !== "boot") {
     bootSequence.reset();
-    $(".file-title").firstChild!.textContent = "FILE NUMBER: ";
+    $(".file-title").firstChild!.textContent = "ARCHIVE SLOT: ";
     $("#stage").dataset.boot = "done";
   }
   if (next === "detail" && previousMode !== "detail") {
@@ -433,6 +444,8 @@ function enterSurvey() {
   $("#archive-ui").inert = true;
   $("#archive-ui").setAttribute("aria-hidden", "true");
   $("#survey-ui").inert = false;
+  $(".system-nav").inert = true;
+  $(".system-footer").inert = true;
   survey.show();
 }
 function select(index: number, navigation?: ArchiveNavigation) {
@@ -472,7 +485,7 @@ function updateSelection(navigation?: ArchiveNavigation) {
         : "down"
       : "auto";
   selectedCode.update({
-    value: Number(r.id.slice(2)),
+    value: r.sourceKind === "survey" ? selected + 1 : Number(r.id.slice(2)),
     animated: !prefs.reduced && mode === "archive",
     direction,
   });
@@ -498,6 +511,8 @@ function updateSelection(navigation?: ArchiveNavigation) {
   $<HTMLButtonElement>('[data-action="column-next"]').disabled = false;
   fileTicks.forEach((button, slot) => {
     const index = files[slot], record = records[index];
+    button.hidden = !record;
+    if (!record) return;
     button.dataset.select = String(index);
     button.setAttribute("aria-label", `选择档案 ${record.id} ${record.title}`);
     button.title = `${record.id} · ${record.title}`;
@@ -555,28 +570,29 @@ function toggleSaved() {
 function renderDetail() {
   tabTransition.cancel();
   const r = records[selected];
-  const profile = survey.getProfile(r.id) ?? survey.getCurrentProfile();
+  const profile = survey.getProfile(r.id);
   const detailName = profile?.label || r.title;
   const detailId = profile?.id || r.id;
   const detailDate = profile ? new Date(profile.createdAt).toLocaleString("zh-CN") : r.date;
   $("#object-id").textContent = "NO." + String(selected + 1).padStart(3, "0");
   $("#detail-content").innerHTML = `
   <div class="detail-kicker"><span>FILE ${escapeHtml(detailId)}</span><span>RHINE LAB</span></div>
-  <h2>RHINE LAB</h2><div class="detail-title-cn">${escapeHtml(detailName)}<span>婚恋画像</span></div>
+  <h2>RELATIONSHIP SURVEY</h2><div class="detail-title-cn">${escapeHtml(detailName)}<span>${profile ? "问卷档案" : "原项目示例档案"}</span></div>
   <div class="detail-rule"></div>
   <dl class="metadata"><div><dt>GENDER / 性别</dt><dd>${escapeHtml(profile?.gender ?? "不愿透露")}</dd></div><div><dt>归档时间</dt><dd>${escapeHtml(detailDate)}</dd></div><div><dt>档案编号</dt><dd>${escapeHtml(detailId)}</dd></div><div><dt>STATUS / 状态</dt><dd><i></i>已归档 · 可读取</dd></div></dl>
-  <div class="detail-tabs" role="tablist"><button id="tab-overview" class="active" role="tab" aria-controls="tab-panel" aria-selected="true" data-tab="overview">01 <span>留言</span></button><button id="tab-notes" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="notes">02 <span>雷达图</span></button><button id="tab-history" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="history">03 <span>访问日志</span></button><i class="tab-indicator" aria-hidden="true"></i></div>
+  <div class="detail-tabs" role="tablist"><button id="tab-overview" class="active" role="tab" aria-controls="tab-panel" aria-selected="true" data-tab="overview">01 <span>概览</span></button><button id="tab-notes" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="notes">02 <span>分项回答</span></button><button id="tab-history" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="history">03 <span>访问日志</span></button><i class="tab-indicator" aria-hidden="true"></i></div>
   <div id="tab-panel" class="tab-panel" role="tabpanel">${overview()}</div>
-  <div class="detail-actions"><button class="solid-button" data-action="bookmark">${saved.has(r.id) ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE"}<span>${saved.has(r.id) ? "已收藏" : "收藏档案"}</span></button><a class="export-button" href="${assetUrl(`archives/RHINE-LAB-${r.id}.txt`)}" download="RHINE-LAB-${r.id}.txt" aria-label="导出 ${r.id} 档案">EXPORT <span>↓</span></a></div>
-  <div class="detail-footnote"><a href="${escapeHtml(r.source)}" target="_blank" rel="noopener">设定参考 ↗</a><span>${String(selected + 1).padStart(3, "0")} / ${String(records.length).padStart(3, "0")}</span></div>`;
+  <div class="detail-actions"><button class="solid-button" data-action="bookmark">${saved.has(r.id) ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE"}<span>${saved.has(r.id) ? "已收藏" : "收藏档案"}</span></button>${profile ? '<button class="export-button" data-action="export-survey">EXPORT JSON <span>↓</span></button>' : `<a class="export-button" href="${assetUrl(`archives/RHINE-LAB-${r.id}.txt`)}" download="RHINE-LAB-${r.id}.txt">EXPORT <span>↓</span></a>`}</div>
+  <div class="detail-footnote">${profile ? `<span>${profile.schemaVersion === 2 ? "问卷 v2 · 2026-11-03" : "旧版 20 题 · 历史记录"}</span>` : `<a href="${escapeHtml(r.source)}" target="_blank" rel="noopener">设定参考 ↗</a>`}<span>${String(selected + 1).padStart(3, "0")} / ${String(records.length).padStart(3, "0")}</span></div>`;
   $("#detail-content").setAttribute("tabindex", "-1");
   $('[data-action="bookmark"]').setAttribute("aria-pressed", String(saved.has(r.id)));
   documentDecryption.reset($("#detail-content"), prefs.reduced || !scene || scene.decryptionFrame.phase === "clear");
   setTab(activeTab, false);
 }
 function overview() {
-  const profile = survey.getProfile(records[selected].id) ?? survey.getCurrentProfile();
-  return `<div class="panel-label">MESSAGE / 留言</div><p class="detail-message">“${escapeHtml(profile?.message ?? "愿你在选择中保持诚实，也保留温柔。")}"</p>`;
+  const profile = survey.getProfile(records[selected].id);
+  if (!profile) return '<div class="panel-label">REFERENCE ARCHIVE / 示例</div><p class="log-note">这是原项目的示例档案，未绑定问卷回答。可从 QUESTIONNAIRE 查看实际提交。</p>';
+  return `<div class="panel-label">QUESTIONNAIRE / 回答概览</div>${profileSummaryMarkup(profile)}${profile.message ? `<p class="detail-message">${escapeHtml(profile.message)}</p>` : ""}`;
 }
 function setTab(tab: string, sound = true) {
   if (sound && tab === activeTab) return;
@@ -597,7 +613,7 @@ function setTab(tab: string, sound = true) {
     tab === "overview"
       ? overview()
       : tab === "notes"
-        ? (survey.getProfile(r.id) ? `<div class="panel-label">PROFILE RADAR / 六维画像</div>${profileRadar(survey.getProfile(r.id)!.answers)}` : `<div class="panel-label">PROFILE RADAR / 六维画像</div><p class="log-note">当前档案尚无问卷画像。</p>`)
+        ? (survey.getProfile(r.id) ? profileResponsesMarkup(survey.getProfile(r.id)!) : '<p class="log-note">当前为原项目示例档案，没有问卷回答。</p>')
         : `<div class="panel-label">ACCESS LOG / 本次访问</div>${accessLog
             .filter((entry) => entry.id === r.id)
             .slice(0, 4)
@@ -838,6 +854,10 @@ document.addEventListener("click", (e) => {
   }
   if (action === "close-modal") closeModal();
   if (action === "bookmark") toggleSaved();
+  if (action === "export-survey") {
+    const profile = survey.getProfile(records[selected].id);
+    if (profile) downloadSubmission(profile);
+  }
   if (action === "reset-search") {
     modal = "search";
     searchQuery = "";
@@ -862,6 +882,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (!started) return;
+  if (surveyOpened) return;
   if (viewer?.isOpen) return;
   if (playground?.active && !modal) {
     if (e.key === "Escape") { e.preventDefault(); playground.stop(); }
@@ -1019,7 +1040,7 @@ function frame(ms: number) {
       : undefined;
   wallpaperEffects?.update(time, prefs.reduced);
   // The calibrated 2D opening fully covers the scene until array entry.
-  if (!viewer?.isOpen && (!cinema || cinema.time >= 21.9)) {
+  if (!surveyOpened && !viewer?.isOpen && (!cinema || cinema.time >= 21.9)) {
     try {
       scene?.update(time, cinema);
     } catch (error) {
@@ -1069,11 +1090,11 @@ function frame(ms: number) {
 function bindScene(scene: ArchiveScene, cell?: { lane: number; row: number }) {
     scene.select(selected, cell ? { cell } : undefined);
     scene.onSelect = (i, cell) => {
-      if (mode !== "archive" || modal || viewer?.isOpen) return;
+      if (mode !== "archive" || surveyOpened || modal || viewer?.isOpen) return;
       select(i, cell ? { cell } : undefined);
     };
     scene.onNavigate = (axis, direction) => {
-      if (mode !== "archive" || modal || viewer?.isOpen) return;
+      if (mode !== "archive" || surveyOpened || modal || viewer?.isOpen) return;
       if (axis === "lane") stepColumn(direction);
       else stepFile(direction);
     };
@@ -1087,7 +1108,7 @@ function bindScene(scene: ArchiveScene, cell?: { lane: number; row: number }) {
       }
       const animated = !prefs.reduced && mode === "archive";
       hoverCode.update({
-        value: Number(records[i].id.slice(2)),
+        value: records[i].sourceKind === "survey" ? i + 1 : Number(records[i].id.slice(2)),
         animated: !label.hidden && animated,
       });
       hoverTitle.update({ text: records[i].title, animated: !label.hidden && animated });
@@ -1163,7 +1184,7 @@ async function toggleThree() {
 async function start() {
   try {
     if (isWallpaper) await window.rhineWallpaperPropertiesReady;
-    if (!isWallpaper || wallpaperHost()?.properties.load3donstartup?.value !== false) {
+    if (!uiOnlyReview && (!isWallpaper || wallpaperHost()?.properties.load3donstartup?.value !== false)) {
       scene = new ArchiveScene($("#three-scene"));
       scene.setTheme(prefs.colorTheme === "dark", true);
       scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");

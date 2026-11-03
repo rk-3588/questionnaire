@@ -26,3 +26,6 @@ reference/local-files-connection.js
 public/fonts/novecento/
 .vercel/
 .wrangler/
+
+# Anonymous response files are runtime data, not repository content.
+data/
