@@ -1,6 +1,5 @@
 import { SurveyTerminal } from "./survey";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
-import { QUESTIONNAIRE_VERSION } from "./questionnaire";
 import "./research.css";
 import "./survey.css";
 
@@ -34,7 +33,7 @@ app.innerHTML = `
             <a href="#questionnaire" class="primary-button"><span data-draft-label>参与问卷调查</span><span aria-hidden="true">→</span></a>
             <a href="#about" class="text-link">了解调查说明 ${arrow}</a>
           </div>
-          <p class="hero-note">自愿参与 · 昵称选填 · 可随时暂停并保留草稿</p>
+          <p class="hero-note">结合自己的经历，分享此刻的想法。</p>
         </div>
         <div class="hero-cover" aria-hidden="true">
           <div class="cover-topline"><span>关系 · 选择 · 未来</span><span>专题调查</span></div>
@@ -49,7 +48,7 @@ app.innerHTML = `
       <section class="participation-facts page-width" aria-label="参与信息">
         <div><span class="fact-label">调查对象</span><strong>高校在读学生</strong><p>专科、本科、硕士、博士等在读阶段</p></div>
         <div><span class="fact-label">问卷内容</span><strong>26 道题，按情况跳题</strong><p>4 道基本情况 · 20 道主体题 · 2 道选答</p></div>
-        <div><span class="fact-label">参与方式</span><strong>自愿填写，自主选择</strong><p>不要求姓名、学号或联系方式</p></div>
+        <div><span class="fact-label">参与方式</span><strong>从自己的近况出发</strong><p>按实际情况作答，暂停后也可以继续</p></div>
       </section>
       <section class="study-topics page-width" aria-labelledby="topics-title">
         <div class="section-heading"><div><p class="section-label">调查关注</p><h2 id="topics-title">从当下的想法，到未来的安排</h2></div><p>记录现阶段的选择，<br>每个人都可以有自己的答案。</p></div>
@@ -59,23 +58,33 @@ app.innerHTML = `
           <article><span class="topic-number">03</span><h3>沟通与支持</h3><p>相处中的沟通、共同生活的安排，以及你希望获得的帮助。</p><span class="topic-keywords">相互理解 / 生活分工 / 支持需求</span></article>
         </div>
       </section>
-      <section id="about" class="study-about page-width" aria-labelledby="about-title">
-        <div class="about-intro"><p class="section-label">参与之前</p><h2 id="about-title" tabindex="-1">一份问卷，<br>从如实表达开始。</h2><p>本调查用于思政实践课的大学生婚恋主题研究。回答反映你现阶段的想法，按自己的实际情况填写即可。</p><a href="#questionnaire" class="text-link">阅读填写说明并开始 ${arrow}</a></div>
+      <section class="participation-banner page-width"><div><p class="section-label">你的声音，是调查的一部分</p><h2>记录此刻的想法。</h2></div><a href="#questionnaire" class="primary-button"><span data-draft-label>参与问卷调查</span><span aria-hidden="true">→</span></a></section>
+    </main>
+    <main id="about-view" class="about-page page-width" hidden>
+      <header class="about-page-header"><p class="section-label">参与指南</p><h1 id="about-title" tabindex="-1">调查说明</h1><p>了解填写、提交和查看回答的方式。</p></header>
+      <section class="study-about" aria-labelledby="filling-title">
+        <div class="about-intro"><h2 id="filling-title">填写与提交</h2><p>题目会根据你的婚姻与伴侣状态调整。按当前的实际情况作答即可；难以判断时，可以选择相应选项或“不愿回答”，选答题也可以跳过。</p><a href="#questionnaire" class="text-link">进入问卷 ${arrow}</a></div>
         <div class="about-details">
-          <article><span>01</span><div><h3>了解用途，自愿参与</h3><p>面向高校在读学生，包括已婚同学。问卷根据婚姻与伴侣状态调整适用题目；可以选择“不愿回答”，选答题可以跳过。</p></div></article>
-          <article><span>02</span><div><h3>按实际情况填写，草稿自动保留</h3><p>在同一浏览器中可暂停后继续。填写完毕后先核对回答，再提交；提交是否成功会明确提示，也可导出自己的回答。</p></div></article>
-          <article><span>03</span><div><h3>个人回答默认不公开</h3><p>只有你主动勾选，昵称与选择题回答（含基本情况）才会进入公开记录。所有补充文字与开放回答始终不公开。请勿填写自己或他人的身份信息。</p></div></article>
-          <p class="about-footnote">服务端保存匿名编号、提交时间、昵称和逐题回答。本机副本与草稿保存在当前浏览器；更换设备或清除浏览器数据后无法自动找回未公开的回答。</p>
+          <article><span>01</span><div><h3>填写与修改</h3><p>逐题作答后，可以返回上一题调整。最后会集中展示你的回答，核对后再提交。</p></div></article>
+          <article><span>02</span><div><h3>暂停与继续</h3><p>填写过程中会自动保留草稿。在同一浏览器中再次进入问卷，就能继续上次的进度。</p></div></article>
+          <article><span>03</span><div><h3>提交与查看</h3><p>提交后会显示结果。你可以在“提交记录”中查看或导出自己的回答；连接失败时，本机副本会保留，可稍后重试提交。</p></div></article>
         </div>
       </section>
-      <section class="participation-banner page-width"><div><p class="section-label">你的声音，是调查的一部分</p><h2>记录此刻的想法。</h2></div><a href="#questionnaire" class="primary-button"><span data-draft-label>参与问卷调查</span><span aria-hidden="true">→</span></a></section>
+      <section class="study-about" aria-labelledby="answers-title">
+        <div class="about-intro"><h2 id="answers-title">回答的使用</h2><p>回答用于思政实践课的大学生婚恋主题调查，帮助了解同学们的不同想法和支持需求。</p></div>
+        <div class="about-details">
+          <article><span>01</span><div><h3>自主决定是否公开</h3><p>个人回答默认不公开。只有主动勾选公开，昵称与选择题回答（含基本情况）才会出现在公开记录中。所有补充文字与开放回答始终不公开。</p></div></article>
+          <article><span>02</span><div><h3>保留自己的回答</h3><p>提交后可下载一份回答副本。草稿和自己的提交记录保存在当前浏览器；更换设备或清除浏览器数据后，无法自动找回未公开的回答。</p></div></article>
+          <p class="about-footnote">调查记录包含匿名编号、提交时间、昵称和逐题回答。请勿在昵称或补充文字中填写自己或他人的身份信息。</p>
+        </div>
+      </section>
     </main>
     <section id="survey-ui" class="survey-embedded" aria-label="问卷与提交记录" hidden></section>
   </div>
   <footer class="site-footer page-width">
     <div><strong>大学生婚恋意愿调查</strong><span>思政实践 · 自愿参与 · 如实表达</span></div>
     <div class="footer-links"><span id="connection-state" role="status">正在连接问卷服务</span><button type="button" id="pwa-update-notice" data-pwa-action="update" hidden>新版本已就绪 · 更新并重启</button><button type="button" id="open-device">安装与更新</button><a href="https://github.com/rk-3588/questionnaire" target="_blank" rel="noopener noreferrer">项目与来源 ${arrow}</a></div>
-    <p>基于 <a href="https://github.com/LBEILC/RhineLabUI" target="_blank" rel="noopener noreferrer">RhineLabUI</a> 二次开发 · 问卷版本 ${QUESTIONNAIRE_VERSION}</p>
+    <p>基于 <a href="https://github.com/LBEILC/RhineLabUI" target="_blank" rel="noopener noreferrer">RhineLabUI</a> 二次开发</p>
   </footer>
   <dialog id="device-dialog" aria-labelledby="device-title"><div class="device-heading"><h2 id="device-title">安装与更新</h2><button type="button" id="close-device" aria-label="关闭安装与更新">×</button></div>${pwaSettingsMarkup()}<p>离线时可填写并保留本机草稿；提交到服务器需要联网。</p><a class="text-link" href="/update.html">打开更新页面 ${arrow}</a></dialog>
   <p id="app-notice" class="app-notice" role="status" hidden></p>
@@ -83,6 +92,7 @@ app.innerHTML = `
 
 const root = app.querySelector<HTMLElement>("#survey-ui")!;
 const home = app.querySelector<HTMLElement>("#home-view")!;
+const about = app.querySelector<HTMLElement>("#about-view")!;
 const survey = new SurveyTerminal(root);
 const pages = new Set(["home", "questionnaire", "submissions", "about"]);
 let activePage = "home";
@@ -92,7 +102,7 @@ function setNavigation(page: string) {
     if (link.dataset.page === page) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   }
-  document.title = `${page === "submissions" ? "提交与公开记录" : page === "questionnaire" ? "填写问卷" : "大学生婚恋意愿调查"} · 思政实践`;
+  document.title = `${page === "submissions" ? "提交与公开记录" : page === "questionnaire" ? "填写问卷" : page === "about" ? "调查说明" : "大学生婚恋意愿调查"} · 思政实践`;
 }
 
 function updateConnection() {
@@ -115,12 +125,12 @@ function showRoute() {
   const hash = location.hash.slice(1);
   // Old bookmarks now lead to the actual questionnaire rather than a game scene.
   activePage = pages.has(hash) ? hash : "home";
+  home.hidden = activePage !== "home";
+  about.hidden = activePage !== "about";
   if (activePage === "questionnaire" || activePage === "submissions") {
-    home.hidden = true;
     survey.show(activePage === "submissions" ? "archive" : "resume");
   } else {
     survey.hide();
-    home.hidden = false;
     if (activePage === "about")
       document.getElementById("about-title")!.focus({ preventScroll: true });
     else if (hash === "home")
@@ -128,9 +138,7 @@ function showRoute() {
     if (hash === "page-content")
       document.getElementById("page-content")!.focus({ preventScroll: true });
     requestAnimationFrame(() => {
-      if (activePage === "about")
-        document.getElementById("about")!.scrollIntoView({ block: "start" });
-      else window.scrollTo(0, 0);
+      window.scrollTo(0, 0);
     });
   }
   setNavigation(activePage);

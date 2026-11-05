@@ -237,7 +237,7 @@ export class SurveyTerminal {
     );
   }
   private header(title: string) {
-    return `<header class="survey-header"><div><span class="survey-kicker">大学生婚恋调查 · 问卷版本 ${QUESTIONNAIRE_VERSION}</span><h1 tabindex="-1">${title}</h1></div><button data-survey-action="archive" class="survey-link">提交与公开记录 ↗</button></header>`;
+    return `<header class="survey-header"><div><span class="survey-kicker">大学生婚恋意愿调查</span><h1 tabindex="-1">${title}</h1></div><button data-survey-action="archive" class="survey-link">提交与公开记录 ↗</button></header>`;
   }
   private status() {
     return `<p class="survey-status" role="status">${escape(this.notice || this.connectionMessage())}</p>`;

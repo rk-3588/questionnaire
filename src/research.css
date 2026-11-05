@@ -461,6 +461,31 @@ summary:focus-visible {
   color: #768078;
   letter-spacing: 0.04em;
 }
+.about-page {
+  min-height: calc(100dvh - 280px);
+  padding-block: 42px 20px;
+}
+.about-page-header {
+  padding-bottom: 28px;
+}
+.about-page-header .section-label {
+  margin-bottom: 12px;
+}
+.about-page-header h1 {
+  margin: 0;
+  font:
+    500 37px/1.4 "Songti SC",
+    STSong,
+    SimSun,
+    serif;
+  letter-spacing: 0.03em;
+}
+.about-page-header > p:last-child {
+  margin: 15px 0 0;
+  color: #637078;
+  font-size: 14px;
+  line-height: 1.9;
+}
 .study-about {
   display: grid;
   grid-template-columns: 1fr 1.22fr;
@@ -932,6 +957,18 @@ summary:focus-visible {
     gap: 27px;
     padding-block: 34px;
     scroll-margin-top: 130px;
+  }
+  .about-page {
+    padding-block: 28px 12px;
+  }
+  .about-page-header {
+    padding-bottom: 24px;
+  }
+  .about-page-header h1 {
+    font-size: 27px;
+  }
+  .about-page-header > p:last-child {
+    font-size: 13px;
   }
   .about-intro > p:not(.section-label) {
     max-width: none;

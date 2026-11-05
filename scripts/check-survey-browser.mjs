@@ -147,6 +147,20 @@ try {
     await page.locator("canvas, #boot, .system-nav, #three-scene").count(),
     0,
   );
+  await page.locator('.site-nav [href="#about"]').click();
+  await page.locator("#about-view").waitFor();
+  assert.equal(await page.locator("#home-view").isVisible(), false);
+  assert.equal(await page.locator("#survey-ui").isVisible(), false);
+  await page.reload();
+  await page.locator("#about-title").waitFor();
+  assert.equal(await page.locator("#home-view").isVisible(), false);
+  await screenshot(page, "desktop-about");
+  await page.locator('.site-nav [href="#home"]').click();
+  await page.locator("#hero-title").waitFor();
+  assert.equal(await page.locator("#about-view").isVisible(), false);
+  checks.push(
+    "homepage and participation guide are separate routes, including direct reload",
+  );
   await screenshot(page, "desktop-home");
   await page.locator('.site-nav [href="#submissions"]').click();
   await page.locator(".survey-profile-row").first().waitFor();
@@ -348,7 +362,10 @@ try {
   );
   await married.page.locator('.site-nav [href="#home"]').click();
   await married.page.locator('.site-nav [href="#about"]').click();
+  await married.page.locator("#about-title").waitFor();
   assert.equal(await married.page.locator("#about-title").isVisible(), true);
+  assert.equal(await married.page.locator("#home-view").isVisible(), false);
+  await screenshot(married.page, "mobile-about");
   await married.page.locator("#open-device").click();
   assert.equal(await married.page.locator("#device-dialog").isVisible(), true);
   await married.page.keyboard.press("Escape");
@@ -356,6 +373,7 @@ try {
   for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await married.page.setViewportSize({ width, height: 900 });
     await married.page.locator('.site-nav [href="#home"]').click();
+    await married.page.locator("#hero-title").waitFor();
     assert.equal(
       await married.page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -364,12 +382,22 @@ try {
       `homepage overflow at ${width}`,
     );
     await married.page.locator('.site-nav [href="#submissions"]').click();
+    await married.page.locator(".identity-card").waitFor();
     assert.equal(
       await married.page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
       true,
       `submissions overflow at ${width}`,
+    );
+    await married.page.locator('.site-nav [href="#about"]').click();
+    await married.page.locator("#about-title").waitFor();
+    assert.equal(
+      await married.page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      `participation guide overflow at ${width}`,
     );
   }
   const pending = await context();
