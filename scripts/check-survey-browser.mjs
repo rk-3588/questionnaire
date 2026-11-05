@@ -60,57 +60,45 @@ const browser = await chromium.launch({
 });
 const errors = [];
 const checks = [];
+const requests = [];
 await mkdir(".tools/survey-browser", { recursive: true });
 async function screenshot(page, name) {
-  // Screenshots cover the form, not the existing 3D scene. Exclude the
-  // backdrop so CPU-only CI does not wait on software GPU fences.
+  // A question transition restores scroll on the next animation frame.
+  // Capture after that frame and the sticky header's layout have settled.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
   await page.screenshot({
     path: `.tools/survey-browser/${name}.png`,
     animations: "disabled",
-    style: ".three-scene { visibility: hidden !important; }",
     timeout: 10000,
   });
 }
 
-async function context(
-  viewport = { width: 1440, height: 1000 },
-  uiOnly = true,
-) {
+async function context(viewport = { width: 1440, height: 1000 }) {
   const context = await browser.newContext({
     viewport,
     serviceWorkers: "block",
     reducedMotion: "reduce",
   });
-  await context.addInitScript(() =>
-    localStorage.setItem(
-      "rhine-settings",
-      JSON.stringify({
-        sound: false,
-        music: false,
-        reduced: true,
-        superPerformance: true,
-      }),
-    ),
-  );
   await context.route("https://query.linxiksp.cn/api/survey", async (route) => {
     const response = await route.fetch({ url: `${base}/api/survey` });
     await route.fulfill({ response });
   });
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => requests.push(request.url()));
   page.setDefaultTimeout(10000);
-  await page.goto(base + (uiOnly ? "/?review=1&ui-only=1&scene=archive" : "/"));
-  await page.waitForFunction(
-    () =>
-      window.rhine?.stats().ready && window.rhine?.stats().mode === "archive",
-    null,
-    { timeout: 30000 },
-  );
+  await page.goto(base);
+  await page.locator("#hero-title").waitFor();
   return { context, page };
 }
 async function openSurvey(page) {
-  if (!(await page.locator("#survey-ui").isVisible()))
-    await page.locator('[data-action="survey"]').click();
+  await page.locator('.site-nav [href="#questionnaire"]').click();
+  await page.locator("#survey-ui").waitFor();
   await page.locator("#survey-ui h1").waitFor();
 }
 async function start(page, name) {
@@ -155,6 +143,16 @@ async function fillUntilReview(page, married, seen = []) {
 try {
   const desktop = await context();
   const page = desktop.page;
+  assert.equal(
+    await page.locator("canvas, #boot, .system-nav, #three-scene").count(),
+    0,
+  );
+  await screenshot(page, "desktop-home");
+  await page.locator('.site-nav [href="#submissions"]').click();
+  await page.locator(".survey-profile-row").first().waitFor();
+  assert.equal(await page.locator(".survey-profile-row").count(), 2);
+  assert.match(await page.locator(".identity-card").innerText(), /尚未提交/);
+  await page.locator('[data-survey-action="system"]').click();
   await start(page, "浏览器验证·单身");
   assert.equal(await currentQuestion(page), "B1");
   await choose(page, "another");
@@ -199,6 +197,18 @@ try {
     await page.locator('[data-response-value="owned_home"]').isChecked(),
     false,
   );
+  await page.locator('.site-nav [href="#home"]').click();
+  assert.match(
+    await page.locator(".hero-actions .primary-button").innerText(),
+    /继续填写问卷/,
+  );
+  await page.reload();
+  await openSurvey(page);
+  assert.equal(await currentQuestion(page), "Q7");
+  assert.equal(
+    await page.locator('[data-response-value="rental_acceptable"]').isChecked(),
+    true,
+  );
   await next(page);
   const tail = await fillUntilReview(page, false);
   assert.ok(tail.includes("Q15"));
@@ -236,23 +246,20 @@ try {
     /浏览器验证·单身/,
   );
   await page.locator('[data-survey-action="system"]').click();
-  await page.evaluate(() => window.rhine.select(0));
-  await page.locator(".read-file").click();
-  await page.locator("#detail-content").waitFor();
+  await page.locator('.site-nav [href="#submissions"]').click();
+  await page.locator('.identity-card [data-survey-action="select"]').click();
   assert.match(
-    await page.locator(".detail-title-cn").innerText(),
+    await page.locator("#survey-ui h1").innerText(),
     /浏览器验证·单身/,
   );
-  await page.locator('[data-tab="notes"]').click();
   assert.equal(await page.locator(".radar-chart").count(), 0);
-  assert.match(await page.locator("#tab-panel").textContent(), /租房也可以/);
+  assert.match(await page.locator("#survey-ui").textContent(), /租房也可以/);
   assert.match(
-    await page.locator("#tab-panel").textContent(),
+    await page.locator("#survey-ui").textContent(),
     /开放文字不公开/,
   );
   await page.reload();
-  await page.waitForFunction(() => window.rhine?.stats().ready);
-  await openSurvey(page);
+  await page.locator(".identity-card").waitFor();
   await page.locator('.survey-header [data-survey-action="archive"]').click();
   assert.match(
     await page.locator(".identity-card").innerText(),
@@ -263,10 +270,11 @@ try {
   );
   assert.equal(own.currentId, ownId);
   checks.push(
-    "SYSTEM shows the selected submission; refresh preserves ownership and original v2 answers",
+    "research homepage, real records only, direct navigation, draft resume and own submission detail survive refresh",
   );
 
-  const married = await context({ width: 390, height: 844 }, false);
+  const married = await context({ width: 390, height: 844 });
+  await screenshot(married.page, "mobile-home");
   await openSurvey(married.page);
   await screenshot(married.page, "mobile-intro");
   await married.page
@@ -338,6 +346,88 @@ try {
   checks.push(
     "legacy archives retain old question meanings and do not substitute the current visitor's responses",
   );
+  await married.page.locator('.site-nav [href="#home"]').click();
+  await married.page.locator('.site-nav [href="#about"]').click();
+  assert.equal(await married.page.locator("#about-title").isVisible(), true);
+  await married.page.locator("#open-device").click();
+  assert.equal(await married.page.locator("#device-dialog").isVisible(), true);
+  await married.page.keyboard.press("Escape");
+  assert.equal(await married.page.locator("#device-dialog").isVisible(), false);
+  for (const width of [320, 390, 768, 1024, 1440, 1920]) {
+    await married.page.setViewportSize({ width, height: 900 });
+    await married.page.locator('.site-nav [href="#home"]').click();
+    assert.equal(
+      await married.page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      `homepage overflow at ${width}`,
+    );
+    await married.page.locator('.site-nav [href="#submissions"]').click();
+    assert.equal(
+      await married.page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      `submissions overflow at ${width}`,
+    );
+  }
+  const pending = await context();
+  const rejectPost = async (route) => {
+    if (route.request().method() === "POST")
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: '{"error":"unavailable"}',
+      });
+    else await route.fallback();
+  };
+  await pending.context.route(
+    "https://query.linxiksp.cn/api/survey",
+    rejectPost,
+  );
+  await start(pending.page, "本机暂存验证");
+  await fillUntilReview(pending.page, true);
+  await pending.page.locator('[data-survey-action="submit"]').click();
+  await pending.page.locator('[data-survey-action="retry"]').waitFor();
+  assert.match(
+    await pending.page.locator(".identity-card").innerText(),
+    /仅保存在本机/,
+  );
+  const downloadPromise = pending.page.waitForEvent("download");
+  await pending.page
+    .locator('.identity-card [data-survey-action="download"]')
+    .click();
+  const download = await downloadPromise;
+  const exported = JSON.parse(await readFile(await download.path(), "utf8"));
+  assert.equal(exported.label, "本机暂存验证");
+  assert.equal(exported.responses.S2.value.length, 160);
+  await pending.context.unroute(
+    "https://query.linxiksp.cn/api/survey",
+    rejectPost,
+  );
+  await pending.page.locator('[data-survey-action="retry"]').click();
+  await pending.page.waitForFunction(() =>
+    document.querySelector(".survey-status")?.textContent.includes("提交成功"),
+  );
+  assert.equal(
+    await pending.page.locator('[data-survey-action="retry"]').count(),
+    0,
+  );
+  assert.equal(
+    JSON.parse(await readFile(dataFile, "utf8")).filter(
+      (row) => row.id === exported.id,
+    ).length,
+    1,
+  );
+  checks.push(
+    "responsive layout at six widths; device dialog keyboard close; failed submission exports and retries once without duplicate",
+  );
+  assert.equal(
+    requests.some((url) => /\.(glb|ogg|mp3|woff2)(\?|$)/.test(url)),
+    false,
+  );
+  checks.push("normal entry requests no models, audio or licensed game fonts");
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(

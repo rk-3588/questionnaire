@@ -73,4 +73,4 @@ Pages Function 为 `functions/api/survey.ts`，数据库绑定名为 `SURVEY_DB`
 
 `npm run check:survey` 校验题目、跳题、恶意或不完整输入、历史兼容、200 字开放题、公开字段投影、并发与重复提交，并用内存 SQLite 执行 D1 查询与迁移。
 
-`npm run check:survey:browser` 在构建后的实际页面中走单身与已婚学生流程，核对 SYSTEM 详情、手机布局及刷新后身份恢复。桌面数据绑定检查使用显式的 `?review=1&ui-only=1&scene=archive` 二维检查入口；手机流程使用正常入口。截图不评估三维背景、材质或镜头，也不代表真实 iPhone 测试。所有测试记录仅写入临时目录，不提交到生产接口。
+`npm run check:survey:browser` 从构建后的正常首页进入，走单身与已婚学生流程，核对逐题回答、手机布局、草稿恢复和本人身份。另检查六种宽度下的首页与记录页、旧版记录、失败提交的导出与重试，以及页面不请求模型、音频或字体。截图不代表真实 iPhone 测试。所有测试记录仅写入临时目录，不提交到生产接口。

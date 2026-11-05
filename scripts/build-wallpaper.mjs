@@ -16,6 +16,9 @@ await copyFile("docs/media/archive.jpg", resolve(root, "preview.jpg"));
 if (project.preview === "preview.gif") await copyFile("wallpaper/preview.gif", resolve(root, "preview.gif"));
 await copyFile("LICENSE", resolve(root, "LICENSE"));
 const html = await readFile(resolve(root, "index.html"), "utf8");
+const entry = html.match(/<script[^>]+src="([^\"]+\.js)"/)?.[1];
+if (!html.includes('id="stage"') || !entry || !(await readFile(resolve(root, entry), "utf8")).includes("three-scene"))
+  throw new Error("Wallpaper must build the original scene entry, not the survey website");
 if (/\b(?:src|href)=["']\//.test(html)) throw new Error("Wallpaper HTML contains root-relative URLs");
 const files = [];
 async function walk(dir) {

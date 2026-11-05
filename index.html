@@ -2,23 +2,30 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#e8e5e1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f7f6f2" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Rhine Lab" />
+    <meta name="apple-mobile-web-app-title" content="婚恋调查" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/icons/survey/apple-touch-icon.png"
+    />
     <meta
       name="description"
-      content="Rhine Lab — Synthesize Information Analysis OS. 交互式三维研究档案终端。"
+      content="面向在校大学生的婚恋意愿调查。了解亲密关系、现实考虑与支持需求，自愿参与，个人回答默认不公开。"
     />
-    <title>RHINE LAB · ANALYSIS OS</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>大学生婚恋意愿调查 · 思政实践</title>
+    <link rel="icon" type="image/svg+xml" href="/survey-mark.svg" />
   </head>
   <body>
-    <main id="viewport"><div id="stage"></div></main>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="app"></div>
+    <script type="module" src="/src/research-app.ts"></script>
   </body>
 </html>

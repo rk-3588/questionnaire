@@ -129,7 +129,11 @@ export class SurveyTerminal {
     this.root.addEventListener("input", (event) => this.input(event));
     this.root.addEventListener("keydown", (event) => {
       event.stopPropagation();
-      if (event.key !== "Tab") return;
+      if (
+        event.key !== "Tab" ||
+        this.root.getAttribute("aria-modal") !== "true"
+      )
+        return;
       const focusable = [
         ...this.root.querySelectorAll<HTMLElement>(
           "button:not(:disabled),input:not(:disabled),textarea:not(:disabled),summary",
@@ -166,7 +170,20 @@ export class SurveyTerminal {
   getProfile(id: string): Submission | undefined {
     return this.getProfiles().find((profile) => profile.id === id);
   }
-  show() {
+  hasDraft(): boolean {
+    return Object.keys(this.responses).length > 0;
+  }
+  getConnectionState() {
+    return this.remoteState;
+  }
+  show(view?: "intro" | "archive" | "resume") {
+    if (view)
+      this.view =
+        view === "resume"
+          ? this.eligible && this.hasDraft()
+            ? "form"
+            : "intro"
+          : view;
     this.root.hidden = false;
     this.root.inert = false;
     this.root.parentElement?.classList.add("survey-active");
@@ -201,13 +218,18 @@ export class SurveyTerminal {
       eligible: this.eligible,
       index: this.index,
     });
+    this.root.dispatchEvent(
+      new CustomEvent("survey:draft-updated", { bubbles: true }),
+    );
   }
   private focusHeading() {
-    requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (this.root.classList.contains("survey-embedded"))
+        this.root.scrollIntoView({ block: "start", behavior: "instant" });
       this.root
         .querySelector<HTMLElement>("h1")
-        ?.focus({ preventScroll: true }),
-    );
+        ?.focus({ preventScroll: true });
+    });
   }
   private changed() {
     this.root.dispatchEvent(
@@ -215,16 +237,17 @@ export class SurveyTerminal {
     );
   }
   private header(title: string) {
-    return `<header class="survey-header"><div><span class="survey-kicker">RELATIONSHIP SURVEY / ${QUESTIONNAIRE_VERSION}</span><h1 tabindex="-1">${title}</h1></div><button data-survey-action="archive" class="survey-link">档案索引 ↗</button></header>`;
+    return `<header class="survey-header"><div><span class="survey-kicker">大学生婚恋调查 · 问卷版本 ${QUESTIONNAIRE_VERSION}</span><h1 tabindex="-1">${title}</h1></div><button data-survey-action="archive" class="survey-link">提交与公开记录 ↗</button></header>`;
   }
   private status() {
-    const status =
-      this.remoteState === "connected"
-        ? "已连接问卷服务"
-        : this.remoteState === "loading"
-          ? "正在连接问卷服务"
-          : "服务暂不可用，可继续本地填写";
-    return `<p class="survey-status" role="status">${escape(this.notice || status)}</p>`;
+    return `<p class="survey-status" role="status">${escape(this.notice || this.connectionMessage())}</p>`;
+  }
+  private connectionMessage() {
+    return this.remoteState === "connected"
+      ? "已连接问卷服务"
+      : this.remoteState === "loading"
+        ? "正在连接问卷服务"
+        : "服务暂不可用，可继续本地填写";
   }
 
   private input(event: Event) {
@@ -387,7 +410,7 @@ export class SurveyTerminal {
       question.id === "B2" &&
       selectedValues(this.responses.B2).includes("not_enrolled")
     ) {
-      this.notice = "本调查仅面向目前在高校就读的学生，可修改选择或返回系统。";
+      this.notice = "本调查仅面向目前在高校就读的学生，可修改选择或返回首页。";
       this.render();
       return;
     }
@@ -442,6 +465,9 @@ export class SurveyTerminal {
     this.responses = {};
     this.index = 0;
     this.publish = false;
+    this.root.dispatchEvent(
+      new CustomEvent("survey:draft-updated", { bubbles: true }),
+    );
     this.view = "archive";
     this.onTone("confirm");
     await this.sync(local);
@@ -499,6 +525,9 @@ export class SurveyTerminal {
   }
   private async loadRemote() {
     this.remoteState = "loading";
+    this.root.dispatchEvent(
+      new CustomEvent("survey:connection-updated", { bubbles: true }),
+    );
     try {
       const response = await fetch(API, {
         headers: { Accept: "application/json" },
@@ -518,16 +547,28 @@ export class SurveyTerminal {
     } catch {
       this.remoteState = "offline";
     }
+    this.root.dispatchEvent(
+      new CustomEvent("survey:connection-updated", { bubbles: true }),
+    );
+    const status = this.root.querySelector(".survey-status");
+    if (status && !this.notice) status.textContent = this.connectionMessage();
     if (this.view === "archive" || this.view === "profile") this.render();
   }
   private render() {
     this.root.setAttribute("aria-busy", String(this.submitting));
+    this.root.dataset.view = this.view;
+    this.root.dispatchEvent(
+      new CustomEvent("survey:view-updated", {
+        bubbles: true,
+        detail: this.view,
+      }),
+    );
     if (this.view === "archive" || this.view === "profile") {
       this.renderArchive();
       return;
     }
     if (this.view === "intro") {
-      this.root.innerHTML = `<div class="survey-shell">${this.header("大学生婚恋意愿调查")}<main class="question-card survey-intro"><span class="question-note">在校大学生 · 自愿参与</span><h2>记录你现阶段的想法。</h2><p>面向高校在读学生，包含专科、本科、硕士和博士。问卷有 4 道基本情况、20 道主体题和 2 道选答；会按婚姻与伴侣状态自动跳题。你可以选择“不愿回答”，也可以暂停后继续。</p><p>回答用于本项目婚恋意愿调查，服务端保存匿名编号、提交时间、昵称和回答。不要求姓名、学号或联系方式。默认不公开个人档案；只有主动勾选公开时，选择题回答才会出现在公共档案索引。“其他”补充文字与最后的开放回答始终不公开。</p><label class="survey-field">档案昵称（可留空）<input data-survey-field="nickname" class="survey-input" maxlength="24" value="${escape(this.nickname)}" autocomplete="off" placeholder="留空会生成访客名称"></label><label class="survey-check"><input type="checkbox" data-survey-field="eligible" ${this.eligible ? "checked" : ""}><span>我目前是高校在读学生，已了解上述用途，自愿参与。</span></label></main>${this.status()}<footer class="survey-footer"><button data-survey-action="system" class="survey-muted">回到 SYSTEM</button><button data-survey-action="start" class="survey-submit" ${this.eligible ? "" : "disabled"}>${Object.keys(this.responses).length ? "继续填写" : "开始问卷"} →</button></footer></div>`;
+      this.root.innerHTML = `<div class="survey-shell">${this.header("大学生婚恋意愿调查")}<main class="question-card survey-intro"><span class="question-note">填写说明 · 自愿参与</span><h2>记录你现阶段的想法。</h2><p>面向高校在读学生，包含专科、本科、硕士和博士。问卷有 4 道基本情况、20 道主体题和 2 道选答；会按婚姻与伴侣状态自动跳题。你可以选择“不愿回答”，也可以暂停后继续。</p><p>回答用于本项目婚恋意愿调查，服务端保存匿名编号、提交时间、昵称和回答。不要求姓名、学号或联系方式。默认不公开个人回答；只有主动勾选公开时，昵称与选择题回答（含基本情况）才会出现在公开记录。“其他”补充文字与最后的开放回答始终不公开。</p><label class="survey-field">填写昵称（可留空）<input data-survey-field="nickname" class="survey-input" maxlength="24" value="${escape(this.nickname)}" autocomplete="off" placeholder="留空会生成访客名称"></label><label class="survey-check"><input type="checkbox" data-survey-field="eligible" ${this.eligible ? "checked" : ""}><span>我目前是高校在读学生，已了解上述用途，自愿参与。</span></label></main>${this.status()}<footer class="survey-footer"><button data-survey-action="system" class="survey-muted">← 返回首页</button><button data-survey-action="start" class="survey-submit" ${this.eligible ? "" : "disabled"}>${Object.keys(this.responses).length ? "继续填写" : "开始问卷"} →</button></footer></div>`;
       return;
     }
     if (this.view === "review") {
@@ -542,7 +583,7 @@ export class SurveyTerminal {
         "预览",
         new Date().toISOString(),
       );
-      this.root.innerHTML = `<div class="survey-shell">${this.header("确认你的回答")}<p class="survey-help">可展开各部分核对，或返回修改。没有总分、六维评分或匹配百分比。</p><div class="survey-review">${profileResponsesMarkup(preview)}</div><label class="survey-check"><input type="checkbox" data-survey-field="publish" ${this.publish ? "checked" : ""}><span>我愿意公开这份匿名档案的昵称与选择题回答（含基本情况）。所有补充文字仍不公开。<small>不勾选也可正常提交。</small></span></label>${this.status()}<footer class="survey-footer"><button data-survey-action="prev" class="survey-muted">← 返回修改</button><button data-survey-action="submit" class="survey-submit">提交问卷 →</button></footer></div>`;
+      this.root.innerHTML = `<div class="survey-shell">${this.header("确认你的回答")}<p class="survey-help">请展开各部分核对。需要调整时，可返回逐题修改。</p><div class="survey-review">${profileResponsesMarkup(preview)}</div><label class="survey-check"><input type="checkbox" data-survey-field="publish" ${this.publish ? "checked" : ""}><span>我愿意公开这份匿名档案的昵称与选择题回答（含基本情况）。所有补充文字仍不公开。<small>不勾选也可正常提交。</small></span></label>${this.status()}<footer class="survey-footer"><button data-survey-action="prev" class="survey-muted">← 返回修改</button><button data-survey-action="submit" class="survey-submit">提交问卷 →</button></footer></div>`;
       return;
     }
     const questions = visibleQuestions(this.responses);
@@ -562,7 +603,7 @@ export class SurveyTerminal {
       const profile = this.getProfile(this.viewedId);
       if (profile) {
         const own = this.ownProfiles.some((item) => item.id === profile.id);
-        this.root.innerHTML = `<div class="survey-shell">${this.header(escape(profile.label))}<p class="survey-help">${escape(profile.id)} · ${profile.schemaVersion === 2 ? "新版分项回答" : "旧版历史回答"}${own ? " · 我的提交" : " · 公开档案"}</p>${profileSummaryMarkup(profile)}${profileResponsesMarkup(profile)}<footer class="survey-footer"><button data-survey-action="archive" class="survey-muted">← 返回索引</button>${own ? `<button data-survey-action="download" data-id="${escape(profile.id)}" class="survey-submit">导出我的回答 ↓</button>` : ""}</footer></div>`;
+        this.root.innerHTML = `<div class="survey-shell">${this.header(escape(profile.label))}<p class="survey-help">${escape(profile.id)} · ${profile.schemaVersion === 2 ? "新版分项回答" : "旧版历史回答"}${own ? " · 我的提交" : " · 自愿公开的记录"}</p>${profileSummaryMarkup(profile)}${profileResponsesMarkup(profile)}<footer class="survey-footer"><button data-survey-action="archive" class="survey-muted">← 返回记录列表</button>${own ? `<button data-survey-action="download" data-id="${escape(profile.id)}" class="survey-submit">导出我的回答 ↓</button>` : ""}</footer></div>`;
         return;
       }
       this.view = "archive";
@@ -570,6 +611,6 @@ export class SurveyTerminal {
     const others = this.getProfiles().filter(
       (profile) => profile.id !== current?.id,
     );
-    this.root.innerHTML = `<div class="survey-shell archive-shell">${this.header("问卷档案索引")}<div class="archive-layout"><section class="identity-card"><span class="card-label">MY SUBMISSION / 我的提交</span><h2>${escape(current?.label ?? "尚未提交")}</h2>${current ? `<p>${escape(current.id)}</p><p>${this.unsynced.has(current.id) ? "仅保存在本机，尚未提交到服务器。" : current.schemaVersion === 2 && !current.publication.profile ? "已提交，未公开个人档案。" : "已提交，可查看原始回答。"}</p>${profileSummaryMarkup(current)}<div class="archive-actions"><button data-survey-action="select" data-id="${escape(current.id)}" class="survey-link">查看回答 ↗</button><button data-survey-action="download" class="survey-link">导出 ↓</button>${this.unsynced.has(current.id) ? '<button data-survey-action="retry" class="survey-link">重试提交 ↻</button>' : ""}</div>` : "<p>其他访客的记录不会被当作你的回答。</p>"}<button data-survey-action="resume" class="survey-submit">继续填写 →</button><button data-survey-action="reset" class="survey-muted">开始一份新问卷</button></section><section class="survey-profile-list"><div class="list-heading"><span>PUBLIC ARCHIVES / 可浏览档案</span><small>${others.length} RECORDS</small><button data-survey-action="refresh" class="survey-link">刷新 ↻</button></div><p class="survey-help">包含公开档案和本机自己的提交。新版与旧版分别标注，暂不计算匹配百分比。</p>${others.length ? others.map((profile) => `<button class="survey-profile-row" data-survey-action="select" data-id="${escape(profile.id)}"><span><b>${escape(profile.label)}</b><small>${escape(profile.id)}</small></span><span>${profile.schemaVersion === 2 ? "新版" : "旧版"} ↗</span></button>`).join("") : '<p class="survey-help">目前没有可浏览的档案。可以先完成自己的问卷。</p>'}</section></div>${this.status()}<footer class="survey-footer"><span>${this.submitting ? "正在提交…" : "逐项保留回答 · 不计算总分"}</span><button data-survey-action="system" class="survey-submit" ${this.submitting ? "disabled" : ""}>回到 SYSTEM ↗</button></footer></div>`;
+    this.root.innerHTML = `<div class="survey-shell archive-shell">${this.header("提交与公开记录")}<div class="archive-layout"><section class="identity-card"><span class="card-label">我的提交</span><h2>${escape(current?.label ?? "尚未提交")}</h2>${current ? `<p>${escape(current.id)}</p><p>${this.unsynced.has(current.id) ? "仅保存在本机，尚未提交到服务器。" : current.schemaVersion === 2 && !current.publication.profile ? "已提交，未公开个人回答。" : "已提交，可查看原始回答。"}</p>${profileSummaryMarkup(current)}<div class="archive-actions"><button data-survey-action="select" data-id="${escape(current.id)}" class="survey-link">查看回答 ↗</button><button data-survey-action="download" class="survey-link">导出 ↓</button>${this.unsynced.has(current.id) ? '<button data-survey-action="retry" class="survey-link">重试提交 ↻</button>' : ""}</div>` : "<p>填写并提交后，可在这里查看自己的回答。仅能在保留本机副本的浏览器中找回。</p>"}<button data-survey-action="resume" class="survey-submit">${this.hasDraft() ? "继续填写" : "填写问卷"} →</button>${this.hasDraft() ? '<button data-survey-action="reset" class="survey-muted">放弃草稿，重新填写</button>' : ""}</section><section class="survey-profile-list"><div class="list-heading"><span>可浏览的回答</span><small>${others.length} 份记录</small><button data-survey-action="refresh" class="survey-link">刷新 ↻</button></div><p class="survey-help">包含受访者自愿公开的回答与本机自己的其他提交。不同版本分别标注，点击可查看逐题回答。</p>${others.length ? others.map((profile) => `<button class="survey-profile-row" data-survey-action="select" data-id="${escape(profile.id)}"><span><b>${escape(profile.label)}</b><small>${escape(profile.id)}${this.ownProfiles.some((item) => item.id === profile.id) ? " · 我的提交" : " · 公开记录"}</small></span><span>${profile.schemaVersion === 2 ? "新版" : "旧版"} ↗</span></button>`).join("") : '<p class="survey-help">目前没有可浏览的记录。你可以先填写问卷，个人回答默认不公开。</p>'}</section></div>${this.status()}<footer class="survey-footer"><span>${this.submitting ? "正在提交…" : "按题保留原始回答"}</span><button data-survey-action="system" class="survey-muted" ${this.submitting ? "disabled" : ""}>← 返回首页</button></footer></div>`;
   }
 }

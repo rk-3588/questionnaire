@@ -1,6 +1,8 @@
 # 大学生婚恋意愿调查系统
 
-一个面向在校大学生的婚恋意愿调查网站，覆盖专科、本科、硕士和博士研究生，包括已婚学生。新版问卷按题目保存选择与补充回答，通过三维档案界面浏览；六维雷达图和匹配百分比已移除，暂以分项回答呈现。
+一个面向在校大学生的婚恋意愿调查网站，覆盖专科、本科、硕士和博士研究生，包括已婚学生。采用正式的调查首页、逐题填写和提交记录页面，按题目保留选择与补充回答。
+
+在线使用：[query.linxiksp.cn](https://query.linxiksp.cn/)。旧版离线页面可通过[更新入口](https://query.linxiksp.cn/update.html)更新，浏览器中的草稿与本人提交副本会保留。
 
 > 本项目基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 二次开发。原项目提供了三维交互终端的视觉与技术基础；本项目已将产品目标由游戏视觉复刻改为婚恋意愿调查与匿名档案系统。
 
@@ -12,7 +14,9 @@
 - 分项展示：保留原始选择，区分未想清楚、不愿回答、不适用与主动跳过，不计算统一分数。
 - 个人档案默认不公开；自愿公开时仅展示昵称与选择题回答，其他补充文字与开放回答不公开。
 - 历史兼容：旧版二十题保留原题、原值与版本，不重新解释成新版回答。
-- 三维档案界面：问卷档案与既有交互场景联动，远端数据会优先写入档案池。
+- 调查界面：暖白、深蓝、灰绿配色；首页、问卷、提交记录与调查说明直接导航，电脑与手机均可使用。
+- 简洁动效：仅保留短暂淡入、进度条和选项状态过渡，遵循系统减少动态效果偏好；正式页面不加载三维场景、音效、开机授权或游戏资源。
+- 真实记录：从问卷接口读取自愿公开的记录，并区分本机自己的提交；不混入原项目的示例档案。
 - 本地优先：保留填写草稿和自己的提交；服务失败明确提示仅保存于本机，并可重试或导出 JSON。
 
 ## 使用方式
@@ -40,7 +44,7 @@
 
 ## 运行
 
-需要 Node.js 22.12 或更高版本，以及支持 WebGL 2 的现代浏览器。
+需要 Node.js 22.12 或更高版本，以及现代浏览器。正式问卷页面不依赖 WebGL。
 
 ```sh
 npm ci
@@ -92,18 +96,19 @@ npm run check:survey
 npm run check:content
 npm run build
 npm run check:survey:browser
+npm run check:survey:pwa
 ```
 
-浏览器检查使用 Playwright Chromium，全部提交写入隔离的临时文件。可通过 `PLAYWRIGHT_CHROMIUM_PATH` 指定本机浏览器可执行文件；截图输出到被 Git 忽略的 `.tools/survey-browser/`。
+浏览器检查使用 Playwright Chromium，全部提交写入隔离的临时文件。PWA 检查验证离线页面、草稿恢复、主动更新与数据保留。可通过 `PLAYWRIGHT_CHROMIUM_PATH` 指定本机浏览器可执行文件；截图输出到被 Git 忽略的 `.tools/survey-browser/`。
 
 ## 技术构成
 
-- TypeScript、Vite、Three.js
+- TypeScript、Vite、原生 HTML/CSS
 - 浏览器 `localStorage` 本地回退
 - Node.js JSON 存储或 Cloudflare Pages Function + D1
 - PWA 离线资源与可安装入口
 
-三维场景、开场动效与模型查看器来自原项目的界面体系；问卷、版本化回答、档案展示和后端接口为本项目的改造范围。
+正式入口为 `src/research-app.ts`，使用系统字体，无需下载字体、模型或音频。首页与表单的界面约定见 [调查界面](docs/RESEARCH-INTERFACE.md)。旧三维场景、开场动效、模型查看器和 Wallpaper Engine 构建保留在历史实现中，独立壁纸构建仍从 `src/main.ts` 进入。
 
 ## 来源、致谢与许可证
 
