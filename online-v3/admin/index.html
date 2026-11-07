@@ -9,8 +9,8 @@
     <meta name="robots" content="noindex,nofollow" />
     <meta name="theme-color" content="#faf4e8" />
     <title>心动之间 · 问卷统计</title>
-    <link rel="stylesheet" href="/styles.css" />
-    <script type="module" src="/app.js"></script>
+    <link rel="stylesheet" href="/styles.css?v=question-navigation-1" />
+    <script type="module" src="/app.js?v=question-navigation-1"></script>
   </head>
   <body>
     <a class="skip-link" href="#content">跳到主要内容</a>
@@ -194,6 +194,17 @@
             ><label id="variant-wrap" hidden
               >题目情景<select id="variant-select"></select
             ></label>
+            <div class="question-navigation">
+              <span id="question-position" class="muted" role="status"></span>
+              <button
+                id="next-question"
+                class="secondary"
+                type="button"
+                disabled
+              >
+                下一题 →
+              </button>
+            </div>
           </div>
           <div id="question-chart"></div>
           <section class="panel comparison">

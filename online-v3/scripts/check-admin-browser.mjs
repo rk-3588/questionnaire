@@ -60,6 +60,26 @@ try {
   assert.equal(await page.locator("#question-select option").count(), 41);
   assert.equal(await page.locator("#records tr").count(), 25);
   assert.equal(await page.locator("#password").inputValue(), "");
+  await page.locator("#tab-analysis").click();
+  await page.locator("#question-select").selectOption("D04");
+  await page.locator("#next-question").click();
+  assert.equal(await page.locator("#question-select").inputValue(), "C01");
+  assert.match(
+    await page.locator("#question-position").innerText(),
+    /第 5 \/ 41 题/,
+  );
+  assert.match(await page.locator("#question-chart").innerText(), /稳定/);
+  await page.locator("#question-select").selectOption("O01");
+  assert.equal(await page.locator("#next-question").isDisabled(), true);
+  assert.match(
+    await page.locator("#question-position").innerText(),
+    /第 41 \/ 41 题/,
+  );
+  await page.locator("#question-select").selectOption("D01");
+  assert.equal(await page.locator("#next-question").isEnabled(), true);
+  await page.locator("#next-question").click();
+  assert.equal(await page.locator("#question-select").inputValue(), "D02");
+  await page.locator("#tab-overview").click();
   await page.screenshot({
     path: join(output, "overview-desktop.png"),
     fullPage: true,
@@ -113,6 +133,14 @@ try {
       !(await page.locator("#question-chart").innerText()).includes("NaN"),
     );
   }
+  await page.locator("#question-select").selectOption("U01");
+  await page.locator("#next-question").click();
+  assert.equal(await page.locator("#question-select").inputValue(), "U02");
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => !document.querySelector("#refresh").disabled,
+  );
+  assert.equal(await page.locator("#question-select").inputValue(), "U02");
   await page.locator("#question-select").selectOption("U01");
   await page.locator("#group-select").selectOption("gender");
   await page.waitForFunction(
@@ -245,6 +273,7 @@ try {
   await page.locator("#auth").waitFor({ state: "visible" });
   assert.equal(await page.locator("#records tr").count(), 0);
   assert.equal(await page.locator("#stats").innerText(), "");
+  assert.equal(await page.locator("#next-question").isDisabled(), true);
   assert.equal(
     (await context.request.get(origin + "/api/admin/summary")).status(),
     401,

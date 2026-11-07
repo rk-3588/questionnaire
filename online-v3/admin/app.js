@@ -94,6 +94,8 @@ function showLogin() {
   $("logout").hidden = true;
   $("auth").hidden = false;
   $("detail").close();
+  $("next-question").disabled = true;
+  $("question-position").textContent = "";
   for (const id of [
     "stats",
     "overview-charts",
@@ -426,9 +428,15 @@ function renderQuestionOptions() {
 }
 function renderQuestion(keepVariant = false) {
   if (!summaryData) return;
-  const q = summaryData.questionStats.find(
-    (q) => q.id === $("question-select").value,
-  );
+  const select = $("question-select");
+  const q = summaryData.questionStats.find((q) => q.id === select.value);
+  $("question-position").textContent =
+    `第 ${select.selectedIndex + 1} / ${select.options.length} 题 · ${q.sectionName}`;
+  $("next-question").disabled =
+    select.selectedIndex >= select.options.length - 1;
+  $("next-question").title = $("next-question").disabled
+    ? "已是最后一题"
+    : `下一题：${select.options[select.selectedIndex + 1].textContent}`;
   const previous = keepVariant ? $("variant-select").value : "";
   $("variant-select").replaceChildren(
     ...q.variants.map((variant) => {
@@ -634,6 +642,11 @@ $("next").addEventListener("click", () => {
   if (page < pages) void load(applied, page + 1);
 });
 $("question-select").addEventListener("change", () => renderQuestion());
+$("next-question").addEventListener("click", () => {
+  if (!summaryData || $("next-question").disabled) return;
+  $("question-select").selectedIndex++;
+  renderQuestion();
+});
 $("variant-select").addEventListener("change", () => renderQuestion(true));
 $("group-select").addEventListener("change", () => {
   if (summaryData)

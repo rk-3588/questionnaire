@@ -705,6 +705,7 @@ td .quiet {
 }
 .analysis-controls {
   display: flex;
+  align-items: flex-end;
   gap: 22px;
   margin-bottom: 20px;
   padding: 20px 24px;
@@ -713,9 +714,23 @@ td .quiet {
   flex: 1;
   min-width: 0;
 }
-.analysis-controls > label:last-child {
+.analysis-controls > #variant-wrap {
   width: 300px;
   max-width: 40%;
+}
+.question-navigation {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.question-navigation .muted {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.question-navigation button {
+  white-space: nowrap;
 }
 #question-chart > .panel {
   margin-bottom: 22px;
@@ -1014,13 +1029,20 @@ footer {
     gap: 13px;
   }
   .analysis-controls > label:first-child,
-  .analysis-controls > label:last-child {
+  .analysis-controls > #variant-wrap {
     width: 100%;
     max-width: none;
     flex: auto;
   }
   .analysis-controls select {
     font-size: 12px;
+  }
+  .question-navigation {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
   }
   .comparison {
     padding: 20px;
