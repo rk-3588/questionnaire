@@ -1,0 +1,16 @@
+{
+  "name": "xindong-survey-v3",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "start:admin": "node server/admin.mjs",
+    "check:admin": "node --test scripts/check-admin.mjs",
+    "check:admin:browser": "node scripts/check-admin-browser.mjs",
+    "setup-admin": "node server/setup-admin.mjs"
+  }
+}

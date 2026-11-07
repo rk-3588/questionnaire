@@ -2,7 +2,9 @@
 
 一个面向在校大学生的婚恋意愿调查网站，覆盖专科、本科、硕士和博士研究生，包括已婚学生。采用正式的调查首页、逐题填写和提交记录页面，按题目保留选择与补充回答。
 
-在线使用：[query.linxiksp.cn](https://query.linxiksp.cn/)。旧版离线页面可通过[更新入口](https://query.linxiksp.cn/update.html)更新，浏览器中的草稿与本人提交副本会保留。
+在线使用：[query.linxiksp.cn](https://query.linxiksp.cn/)。独立统计后台：[admin.query.linxiksp.cn](https://admin.query.linxiksp.cn/)。
+
+**当前线上为合作者更新的“心动之间”V3，源码与运行说明见 [online-v3](online-v3/README.md)，后台统计及反代配置见 [独立部署说明](online-v3/docs/后台统计与独立部署.md)。** 以下功能、运行与数据说明保留此前 TypeScript 版本的实现记录；继续修改线上网站请从 `online-v3/` 进入。
 
 > 本项目基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 二次开发。原项目提供了三维交互终端的视觉与技术基础；本项目已将产品目标由游戏视觉复刻改为婚恋意愿调查与匿名档案系统。
 

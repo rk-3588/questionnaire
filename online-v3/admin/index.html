@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#faf4e8" />
+    <title>心动之间 · 问卷统计</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">跳到主要内容</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="心动之间统计首页"
+        ><svg viewBox="0 0 42 40" aria-hidden="true">
+          <path
+            d="M21 34C15 29 3 20 4 12 5 2 17 3 21 11 25 3 37 2 38 12 39 20 27 29 21 34Z"
+          /></svg
+        >心动之间<span>调查管理</span></a
+      >
+      <div class="header-actions">
+        <a
+          href="https://query.linxiksp.cn/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >查看问卷 ↗</a
+        ><button id="logout" class="quiet" hidden>退出登录</button>
+      </div>
+    </header>
+    <main id="content">
+      <p id="session-loading" class="loading" role="status">
+        正在确认登录状态…
+      </p>
+      <section id="auth" class="auth panel" aria-labelledby="auth-title" hidden>
+        <span class="eyebrow">研究工作台</span>
+        <h1 id="auth-title">欢迎回来。</h1>
+        <p id="auth-description">登录后查看问卷统计与回答记录。</p>
+        <form id="auth-form">
+          <label for="password">管理员密码</label
+          ><input
+            id="password"
+            name="password"
+            type="password"
+            minlength="12"
+            maxlength="128"
+            autocomplete="current-password"
+            required
+          />
+          <div id="confirm-wrap" hidden>
+            <label for="confirm">再次输入密码</label
+            ><input
+              id="confirm"
+              type="password"
+              minlength="12"
+              maxlength="128"
+              autocomplete="new-password"
+            />
+          </div>
+          <button class="primary" id="auth-submit" type="submit">
+            登录工作台 <span aria-hidden="true">→</span>
+          </button>
+        </form>
+        <p id="auth-error" class="error" role="alert"></p>
+        <p class="auth-note">
+          仅向授权研究者开放，问卷回答不在填写页面公开展示。
+        </p>
+      </section>
+      <section id="dashboard" hidden>
+        <div class="desk-intro">
+          <div>
+            <p class="eyebrow">每一份回答，都有自己的考虑</p>
+            <h1>问卷统计</h1>
+            <p>了解受访同学的婚恋想法、现实考虑与支持需求。</p>
+          </div>
+          <div class="refresh-area">
+            <span id="updated-at" class="muted"></span
+            ><button id="refresh" class="secondary">刷新数据 ↻</button>
+          </div>
+        </div>
+        <form id="filters" class="filter-panel panel">
+          <div class="filter-primary">
+            <label
+              >样本范围<select id="eligibility" name="eligibility">
+                <option value="enrolled">已确认高校在读</option>
+                <option value="">全部提交（含资格未透露）</option>
+                <option value="unknown">仅在读资格未透露</option>
+              </select></label
+            >
+            <label
+              >关系状态<select id="route" name="route">
+                <option value="">全部关系状态</option>
+                <option value="A">暂无已确认伴侣</option>
+                <option value="B">有伴侣、目前非已婚</option>
+                <option value="M">目前已婚</option>
+                <option value="G">关系或婚姻状态未透露</option>
+              </select></label
+            >
+            <button class="primary" type="submit">应用筛选</button
+            ><button id="reset" class="quiet" type="button">重置</button>
+          </div>
+          <details id="more-filters">
+            <summary>更多筛选 <span>日期、学习阶段、性别</span></summary>
+            <div class="filter-extra">
+              <label
+                >起始日期<input type="date" id="start" name="start" /></label
+              ><label>截止日期<input type="date" id="end" name="end" /></label>
+              <label
+                >学习阶段<select id="study" name="study">
+                  <option value="">全部学习阶段</option>
+                  <option value="college">专科</option>
+                  <option value="undergrad">本科</option>
+                  <option value="graduate">研究生</option>
+                  <option value="other_enrolled">其他高校在读阶段</option>
+                  <option value="unknown">未透露</option>
+                </select></label
+              >
+              <label
+                >性别<select id="gender" name="gender">
+                  <option value="">全部性别</option>
+                  <option value="female">女</option>
+                  <option value="male">男</option>
+                  <option value="other">其他性别认同</option>
+                  <option value="unknown">未透露</option>
+                </select></label
+              >
+            </div>
+          </details>
+          <div class="filter-bottom">
+            <p id="filter-caption" role="status">正在读取数据…</p>
+            <div class="exports">
+              <button type="button" id="export-csv" class="quiet">
+                导出 CSV ↓</button
+              ><button type="button" id="export-json" class="quiet">
+                导出 JSON ↓
+              </button>
+            </div>
+          </div>
+        </form>
+        <p id="dashboard-error" class="error" role="alert"></p>
+        <div id="stats" class="stats" aria-label="提交概况"></div>
+        <div class="desk-tabs" role="tablist" aria-label="管理视图">
+          <button
+            role="tab"
+            id="tab-overview"
+            aria-controls="panel-overview"
+            aria-selected="true"
+            data-tab="overview"
+          >
+            统计概览</button
+          ><button
+            role="tab"
+            id="tab-analysis"
+            aria-controls="panel-analysis"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="analysis"
+          >
+            逐题分析</button
+          ><button
+            role="tab"
+            id="tab-records"
+            aria-controls="panel-records"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="records"
+          >
+            回答记录
+          </button>
+        </div>
+        <section
+          id="panel-overview"
+          role="tabpanel"
+          aria-labelledby="tab-overview"
+        >
+          <div id="empty-overview" class="empty panel" hidden>
+            <span aria-hidden="true">♡</span>
+            <h2>等待更多真实的声音。</h2>
+            <p>当前筛选范围还没有答卷。收到提交后，统计会在这里显示。</p>
+          </div>
+          <div id="overview-charts" class="chart-grid"></div>
+        </section>
+        <section
+          id="panel-analysis"
+          role="tabpanel"
+          aria-labelledby="tab-analysis"
+          hidden
+        >
+          <div class="analysis-controls panel">
+            <label>选择题目<select id="question-select"></select></label
+            ><label id="variant-wrap" hidden
+              >题目情景<select id="variant-select"></select
+            ></label>
+          </div>
+          <div id="question-chart"></div>
+          <section class="panel comparison">
+            <div class="section-heading">
+              <div>
+                <h2>分组查看</h2>
+                <p class="muted">同一题目在不同群体中的回答分布。</p>
+              </div>
+              <label
+                >分组方式<select id="group-select">
+                  <option value="study">学习阶段</option>
+                  <option value="gender">性别</option>
+                  <option value="route">关系状态</option>
+                </select></label
+              >
+            </div>
+            <p id="comparison-note" class="muted"></p>
+            <div id="comparison-table" class="table-scroll"></div>
+          </section>
+        </section>
+        <section
+          id="panel-records"
+          role="tabpanel"
+          aria-labelledby="tab-records"
+          hidden
+        >
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <h2>回答记录</h2>
+                <p class="muted">
+                  与当前统计使用相同筛选范围，按提交时间倒序排列。
+                </p>
+              </div>
+              <span id="result-count" class="record-count"></span>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">提交时间</th>
+                    <th scope="col">关系状态</th>
+                    <th scope="col">在读资格</th>
+                    <th scope="col">填写用时</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="records"></tbody>
+              </table>
+            </div>
+            <p id="empty-records" class="empty" hidden>
+              没有符合筛选条件的回答。
+            </p>
+            <div class="pager">
+              <button id="prev" class="quiet">← 上一页</button
+              ><span id="page-label"></span
+              ><button id="next" class="quiet">下一页 →</button>
+            </div>
+          </section>
+        </section>
+        <details class="reading-note panel">
+          <summary>统计口径与阅读说明</summary>
+          <p>
+            图表百分比以每题、每个情景的有效选择人数为分母，包含尚未确定、记不清、无需求等选项；不适用、难以代入、不愿回答、主动跳过、未答及未展示单独列出。多选题按选择该项的人数计算，百分比之和可以超过
+            100%。
+          </p>
+          <p>
+            未来结婚意愿、婚期、结婚因素及家庭结婚期待，只统计明确当前非已婚者。婚姻状况未透露的相关回答另列；在读资格默认筛选为已确认高校在读。
+          </p>
+          <p>
+            不同情景题保留各自题干。彩礼收取方的个人期望、支付方的预计预算、通用安排偏好分别展示；生育与再生育意愿按原题含义理解。各图用于样本内描述，不代表因果关系。
+          </p>
+          <p>
+            日期与提交趋势按北京时间统计；填写用时来自页面记录，仅展示有记录的正数用时。开放文字只在登录后的单份回答中查看，不生成词云或放入概览。
+          </p>
+        </details>
+      </section>
+      <dialog id="detail" aria-labelledby="detail-title">
+        <div class="detail-head">
+          <div>
+            <p class="eyebrow">单份匿名回答</p>
+            <h2 id="detail-title">回答详情</h2>
+          </div>
+          <button id="close-detail" class="quiet">关闭 ×</button>
+        </div>
+        <p id="detail-meta" class="muted"></p>
+        <div id="detail-body"></div>
+      </dialog>
+    </main>
+    <footer>心动之间 · 大学生婚恋意愿调查 <span>研究工作台</span></footer>
+  </body>
+</html>

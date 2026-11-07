@@ -1,0 +1,26 @@
+# Replace both certificate paths with files covering admin.query.linxiksp.cn.
+# In a server panel, place the location block inside that domain's HTTPS server.
+server {
+    listen 80;
+    server_name admin.query.linxiksp.cn;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name admin.query.linxiksp.cn;
+    ssl_certificate     /path/to/admin.query.linxiksp.cn/fullchain.pem;
+    ssl_certificate_key /path/to/admin.query.linxiksp.cn/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3101;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+    }
+}
