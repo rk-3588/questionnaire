@@ -10,6 +10,7 @@ import { fixture } from "./admin-fixtures.mjs";
 import {
   buildSummary,
   buildComparison,
+  buildCollection,
   questionSummary,
   parseFilters,
   filterRecords,
@@ -188,6 +189,145 @@ test("empty results preserve zero options and null proportions rather than fabri
     ),
   );
   assert.ok(!JSON.stringify(result).includes("NaN"));
+  assert.ok(
+    result.themes.every(
+      (theme) =>
+        theme.summary.valid === 0 &&
+        theme.metrics.every((metric) => metric.percent === null),
+    ),
+  );
+  assert.ok(
+    result.collection.days.every(
+      (day) => day.count === 0 && day.cumulative === 0,
+    ),
+  );
+});
+
+test("theme summaries preserve ties, uncertainty, per-question scope and distinct support respondents", () => {
+  const rows = [
+    row({ answers: { F01: "large", F03: "want", H02: "self_help" } }),
+    row({
+      answers: {
+        U01: "unsure",
+        F01: "very_large",
+        F03: "want",
+        H01: "none",
+        H02: "none",
+      },
+    }),
+    row({
+      answers: {
+        U01: "declined",
+        F01: "medium",
+        F03: "neutral",
+        H01: "declined",
+        H02: "none",
+      },
+    }),
+    row({
+      answers: {
+        D04: "declined",
+        F01: "declined",
+        F03: "want",
+        H02: "declined",
+      },
+    }),
+  ];
+  const themes = buildSummary(rows).themes;
+  assert.equal(themes.length, 3);
+  const [intention, reality, support] = themes;
+  assert.equal(intention.summary.valid, 2);
+  assert.deepEqual(
+    intention.summary.choices.map((choice) => choice.value),
+    ["yes", "unsure"],
+  );
+  assert.equal(intention.metrics[1].count, 1);
+  assert.equal(intention.metrics[1].percent, 50);
+  assert.match(intention.metrics[1].note, /非已婚/);
+  assert.equal(reality.metrics[0].count, 2);
+  assert.equal(reality.metrics[0].valid, 3);
+  assert.equal(reality.metrics[0].percent, 66.7);
+  assert.deepEqual(
+    reality.summary.choices.map((choice) => choice.value),
+    ["relationship", "practical"],
+  );
+  assert.equal(reality.summary.percent, 100);
+  assert.equal(reality.metrics[2].count, 2);
+  assert.equal(reality.metrics[2].valid, 3);
+  assert.equal(support.metrics[0].count, 2);
+  assert.equal(support.metrics[0].valid, 3);
+  assert.equal(support.metrics[0].percent, 66.7);
+  assert.equal(support.metrics[1].count, 1);
+  assert.deepEqual(
+    support.metrics[2].choices.map((choice) => choice.value),
+    ["none"],
+  );
+});
+
+test("themes do not imply missing marriage intentions or support needs for inapplicable and unanswered groups", () => {
+  const result = buildSummary([
+    row({ answers: { D04: "married", H01: undefined } }),
+  ]);
+  assert.equal(result.themes[0].summary.valid, 0);
+  assert.deepEqual(result.themes[0].summary.choices, []);
+  assert.equal(result.themes[0].metrics[1].percent, null);
+  assert.equal(result.themes[0].metrics[0].percent, 100);
+  assert.equal(result.themes[2].metrics[0].count, 0);
+  assert.equal(result.themes[2].metrics[0].percent, null);
+});
+
+test("collection trend carries older records into cumulative totals and fills quiet days without counting future records", () => {
+  const rows = [
+    "2026-10-01T04:00:00Z",
+    "2026-10-08T04:00:00Z",
+    "2026-10-09T15:59:59Z",
+    "2026-11-06T16:00:00Z",
+    "2026-11-08T04:00:00Z",
+  ].map((createdAt) => row({ createdAt }));
+  const result = buildCollection(rows, {}, new Date("2026-11-07T04:00:00Z"));
+  assert.equal(result.days.length, 30);
+  assert.equal(result.start, "2026-10-09");
+  assert.equal(result.openingTotal, 2);
+  assert.equal(result.days[0].count, 1);
+  assert.equal(result.days[0].cumulative, 3);
+  assert.equal(result.days[1].count, 0);
+  assert.equal(result.days[1].cumulative, 3);
+  assert.equal(result.days.at(-1).day, "2026-11-07");
+  assert.equal(result.days.at(-1).count, 1);
+  assert.equal(result.totalThroughEnd, 4);
+  const week = result.days.slice(-7);
+  assert.equal(week[0].cumulative - week[0].count, 3);
+  assert.equal(week.at(-1).cumulative, 4);
+  assert.ok(
+    result.days.every(
+      (day, index) =>
+        Number.isFinite(day.cumulative) &&
+        (index === 0 || day.cumulative >= result.days[index - 1].cumulative),
+    ),
+  );
+});
+
+test("collection trend clips to the applied date scope, includes endpoints and handles a single day", () => {
+  const rows = [
+    "2026-11-04T04:00:00Z",
+    "2026-11-06T16:00:00Z",
+    "2026-11-07T16:00:00Z",
+  ].map((createdAt) => row({ createdAt }));
+  const selected = filters("start=2026-11-05&end=2026-11-07");
+  const result = buildCollection(
+    filterRecords(rows, selected),
+    selected,
+    new Date("2026-12-01T04:00:00Z"),
+  );
+  assert.equal(result.days.length, 3);
+  assert.equal(result.days[0].day, "2026-11-05");
+  assert.equal(result.openingTotal, 0);
+  assert.equal(result.days.at(-1).count, 1);
+  assert.equal(result.days.at(-1).cumulative, 1);
+  const single = filters("start=2026-11-07&end=2026-11-07");
+  assert.deepEqual(buildCollection(filterRecords(rows, single), single).days, [
+    { day: "2026-11-07", count: 1, cumulative: 1 },
+  ]);
 });
 
 test("group comparisons share the same per-question denominator and preserve empty groups", () => {
@@ -319,6 +459,8 @@ test("independent servers protect statistics, export, origin and CSRF while pres
   const auth = { headers: { Cookie: cookie } };
   const summary = await request("/api/admin/summary?study=undergrad", auth);
   assert.equal(summary.data.total, 2);
+  assert.equal(summary.data.themes.length, 3);
+  assert.ok(Array.isArray(summary.data.collection.days));
   assert.ok(!summary.text.includes(rawText));
   assert.match(summary.response.headers.get("cache-control"), /no-store/);
   assert.equal(

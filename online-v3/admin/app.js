@@ -24,17 +24,6 @@ const excluded = new Set([
   "skipped",
   "unanswered",
 ]);
-const shortTitles = {
-  C01: "稳定亲密关系意愿",
-  U01: "未来结婚意愿",
-  U02: "结婚时间安排",
-  R01: "生育或再生育意愿",
-  F01: "日常开支压力",
-  F02: "考虑结婚时最看重什么",
-  F03: "感知到的家庭结婚期待",
-  H01: "希望获得哪些支持",
-  H02: "倾向怎样了解或讨论婚恋问题",
-};
 const errorNames = {
   invalid_credentials: "密码不正确，请重新输入。",
   too_many_attempts: "尝试次数较多，请稍后再试。",
@@ -57,6 +46,7 @@ let applied = new URLSearchParams("eligibility=enrolled"),
   pages = 1,
   loadSeq = 0,
   comparisonSeq = 0;
+let collectionDays = 14;
 const number = (n) => new Intl.NumberFormat("zh-CN").format(n);
 const percent = (value) =>
   value === null || value === undefined ? "—" : `${value.toFixed(1)}%`;
@@ -277,22 +267,11 @@ function bar(label, count, value) {
   row.append(caption, track);
   return row;
 }
-function questionCard(q, variant = q.variants[0], overview = false) {
+function questionCard(q, variant = q.variants[0]) {
   const card = el("article", undefined, "panel chart-card");
   card.dataset.question = q.id;
   const heading = el("div", undefined, "chart-head");
-  heading.append(el("h2", overview ? shortTitles[q.id] || q.title : q.title));
-  if (overview) {
-    const b = el("button", "查看详情 ↗", "quiet");
-    b.type = "button";
-    b.addEventListener("click", () => {
-      $("question-select").value = q.id;
-      renderQuestion();
-      switchTab("analysis");
-      $("question-select").focus();
-    });
-    heading.append(b);
-  }
+  heading.append(el("h2", q.title));
   card.append(heading);
   const meta = el("div", undefined, "chart-meta");
   meta.append(
@@ -336,47 +315,301 @@ function questionCard(q, variant = q.variants[0], overview = false) {
   if (notes.length) card.append(el("p", notes.join(""), "chart-footnote"));
   return card;
 }
-function trendCard() {
-  const card = el("article", undefined, "panel chart-card");
-  card.append(
-    el("h3", "提交趋势"),
+function openQuestion(id) {
+  $("question-select").value = id;
+  renderQuestion();
+  switchTab("analysis");
+  $("question-select").focus();
+}
+function sourceText(metric) {
+  return `${metric.kind === "leaders" && metric.choices.length > 1 ? "每项 " : ""}${number(metric.count)} / ${number(metric.valid)} 人 · ${metric.note}`;
+}
+function leaderText(metric) {
+  if (!metric.valid) return `${metric.label}暂无有效选择。`;
+  const choices = metric.choices
+    .map((choice) => `“${choice.label}”`)
+    .join("、");
+  return `${metric.label}中，${metric.choices.length > 1 ? "并列最多的选择是" : "最多的选择是"}${choices}（${metric.choices.length > 1 ? "每项" : ""}${number(metric.count)} 人，${percent(metric.percent)}）。`;
+}
+function themeCard(theme, index) {
+  const card = el("article", undefined, "panel theme-card");
+  card.dataset.theme = theme.id;
+  const head = el("div", undefined, "theme-head");
+  head.append(
+    el("span", `0${index + 1}`, "theme-number"),
+    el("h3", theme.title),
+  );
+  card.append(head);
+  const summary = el("button", undefined, "theme-summary");
+  summary.type = "button";
+  summary.dataset.question = theme.summary.questionId;
+  summary.append(
+    el("span", leaderText(theme.summary)),
     el(
-      "p",
-      `${summaryData.trend[0].day} 至 ${summaryData.trend.at(-1).day} · 点击某天查看当日记录`,
-      "chart-subtitle",
+      "small",
+      `有效选择 ${number(theme.summary.valid)} 人 · ${theme.summary.note} · 查看原题 ↗`,
     ),
   );
-  const chart = el("div", undefined, "trend"),
-    maximum = Math.max(1, ...summaryData.trend.map((d) => d.count));
-  for (const day of summaryData.trend) {
-    const column = el("button", undefined, "trend-day");
-    column.type = "button";
-    column.setAttribute(
-      "aria-label",
-      `${day.day}，${day.count} 份提交，查看当日记录`,
+  summary.addEventListener("click", () =>
+    openQuestion(theme.summary.questionId),
+  );
+  card.append(summary);
+  const metrics = el("div", undefined, "theme-metrics");
+  for (const metric of theme.metrics) {
+    const button = el("button", undefined, "theme-metric");
+    button.type = "button";
+    button.dataset.question = metric.questionId;
+    const row = el("span", undefined, "metric-heading");
+    row.append(el("span", metric.label), el("strong", percent(metric.percent)));
+    button.append(row);
+    if (metric.kind === "leaders")
+      button.append(
+        el(
+          "span",
+          metric.choices.length
+            ? metric.choices.map((choice) => choice.label).join(" / ")
+            : "暂无有效选择",
+          "metric-choice",
+        ),
+      );
+    button.append(el("small", sourceText(metric) + " ↗"));
+    button.addEventListener("click", () => openQuestion(metric.questionId));
+    metrics.append(button);
+  }
+  card.append(metrics, el("p", theme.note, "theme-note"));
+  return card;
+}
+function openCollectionDay(day) {
+  const params = new URLSearchParams(applied);
+  params.set("start", day);
+  params.set("end", day);
+  for (const key of ["eligibility", "route", "study", "gender", "start", "end"])
+    $(key).value = params.get(key) || "";
+  $("more-filters").open = true;
+  void load(params, 1);
+  switchTab("records");
+}
+function svgNode(tag, attrs, text) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [key, value] of Object.entries(attrs))
+    node.setAttribute(key, value);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function cumulativeChart(days) {
+  const maximum = Math.max(1, ...days.map((day) => day.cumulative));
+  const svg = svgNode("svg", {
+    viewBox: "0 0 600 210",
+    role: "img",
+    "aria-label": `${days[0].day} 至 ${days.at(-1).day}，累计回收 ${days.at(-1).cumulative} 份；每日数值见下方明细表`,
+  });
+  for (const value of [...new Set([0, Math.round(maximum / 2), maximum])]) {
+    const y = 171 - (value / maximum) * 140;
+    svg.append(
+      svgNode("line", {
+        x1: 44,
+        x2: 582,
+        y1: y,
+        y2: y,
+        class: "collection-gridline",
+      }),
+      svgNode("text", { x: 34, y: y + 4, "text-anchor": "end" }, number(value)),
     );
-    column.title = `${day.day} · ${day.count} 份`;
-    column.append(
+  }
+  const points = days.map((day, index) => ({
+    x: days.length === 1 ? 313 : 44 + (index / (days.length - 1)) * 538,
+    y: 171 - (day.cumulative / maximum) * 140,
+  }));
+  const path = points
+    .map((point, index) => `${index ? "L" : "M"}${point.x},${point.y}`)
+    .join(" ");
+  if (days.length > 1)
+    svg.append(
+      svgNode("path", {
+        d: `${path} L${points.at(-1).x},171 L${points[0].x},171 Z`,
+        class: "cumulative-area",
+      }),
+    );
+  svg.append(svgNode("path", { d: path, class: "cumulative-line" }));
+  for (const [index, point] of points.entries()) {
+    if (index === 0 || index === points.length - 1 || days[index].count)
+      svg.append(
+        svgNode("circle", {
+          cx: point.x,
+          cy: point.y,
+          r: 3,
+          class: "cumulative-point",
+        }),
+      );
+  }
+  for (const index of [
+    ...new Set([0, Math.floor((days.length - 1) / 2), days.length - 1]),
+  ])
+    svg.append(
+      svgNode(
+        "text",
+        {
+          x: points[index].x,
+          y: 199,
+          "text-anchor":
+            index === 0
+              ? "start"
+              : index === days.length - 1
+                ? "end"
+                : "middle",
+        },
+        days[index].day.slice(5).replace("-", "/"),
+      ),
+    );
+  return svg;
+}
+function renderCollection(body) {
+  body.replaceChildren();
+  const days = summaryData.collection.days.slice(-collectionDays);
+  if (!days.length) {
+    body.append(el("p", "当前筛选范围没有可展示的回收日期。", "muted"));
+    return;
+  }
+  const added = days.reduce((sum, day) => sum + day.count, 0),
+    peak = Math.max(...days.map((day) => day.count));
+  const opening = days[0].cumulative - days[0].count;
+  body.append(
+    el(
+      "p",
+      `${days[0].day} 至 ${days.at(-1).day} · 北京时间`,
+      "collection-range",
+    ),
+  );
+  const metrics = el("div", undefined, "collection-metrics");
+  for (const [label, value, unit] of [
+    ["本段新增", added, "份"],
+    ["截至末日累计", days.at(-1).cumulative, "份"],
+    ["日最高回收", peak, "份 / 日"],
+  ]) {
+    const item = el("div");
+    item.append(
+      el("span", label),
+      el("strong", number(value)),
+      el("small", unit),
+    );
+    metrics.append(item);
+  }
+  body.append(metrics);
+  const plots = el("div", undefined, "collection-plots"),
+    daily = el("section", undefined, "collection-chart");
+  daily.append(
+    el("h3", "每日新增"),
+    el("p", "点击柱形可查看当日记录", "muted"),
+  );
+  const chart = el(
+    "div",
+    undefined,
+    "trend daily-trend" + (days.length > 14 ? " dense-trend" : ""),
+  );
+  for (const [index, day] of days.entries()) {
+    const button = el("button", undefined, "trend-day");
+    button.type = "button";
+    button.dataset.day = day.day;
+    button.setAttribute(
+      "aria-label",
+      `${day.day}，新增 ${day.count} 份，累计 ${day.cumulative} 份，查看当日记录`,
+    );
+    button.title = `${day.day} · 新增 ${day.count} 份 · 累计 ${day.cumulative} 份`;
+    button.append(
       el("span", day.count ? number(day.count) : "", "trend-count"),
     );
     const track = el("span", undefined, "trend-track"),
       fill = el("span", undefined, "trend-column");
-    fill.style.height = `${(day.count / maximum) * 100}%`;
+    fill.style.height = `${peak ? (day.count / peak) * 100 : 0}%`;
     track.append(fill);
-    column.append(
-      track,
-      el("span", day.day.slice(5).replace("-", "/"), "trend-label"),
-    );
-    column.addEventListener("click", () => {
-      $("start").value = day.day;
-      $("end").value = day.day;
-      $("more-filters").open = true;
-      void load(formParams(), 1);
-      switchTab("records");
-    });
-    chart.append(column);
+    button.append(track);
+    const label = el("span", day.day.slice(5).replace("-", "/"), "trend-label");
+    if (index !== days.length - 1 && index % Math.ceil(days.length / 6))
+      label.classList.add("unlabelled-day");
+    button.append(label);
+    button.addEventListener("click", () => openCollectionDay(day.day));
+    chart.append(button);
   }
-  card.append(chart);
+  daily.append(chart);
+  const cumulative = el("section", undefined, "collection-chart");
+  cumulative.append(
+    el("h3", "累计回收"),
+    el("p", "当前筛选范围内，截至当日的全部答卷", "muted"),
+    cumulativeChart(days),
+  );
+  plots.append(daily, cumulative);
+  body.append(plots);
+  body.append(
+    el(
+      "p",
+      (added ? "" : "本段时间没有新增答卷。") +
+        (opening
+          ? `展示窗口前已回收 ${number(opening)} 份，计入累计。`
+          : "累计按当前筛选范围计算。") +
+        "趋势记录答卷的回收过程。",
+      "collection-note",
+    ),
+  );
+  const details = el("details", undefined, "collection-details");
+  details.append(el("summary", "查看每日回收明细"));
+  const scroll = el("div", undefined, "table-scroll"),
+    table = el("table"),
+    head = el("thead"),
+    headRow = el("tr");
+  for (const label of ["日期", "新增答卷", "累计回收"]) {
+    const th = el("th", label);
+    th.scope = "col";
+    headRow.append(th);
+  }
+  head.append(headRow);
+  table.append(head);
+  const tbody = el("tbody");
+  for (const day of days) {
+    const row = el("tr"),
+      date = el("td"),
+      button = el("button", day.day + " ↗", "quiet");
+    button.type = "button";
+    button.addEventListener("click", () => openCollectionDay(day.day));
+    date.append(button);
+    row.append(
+      date,
+      el("td", `${number(day.count)} 份`),
+      el("td", `${number(day.cumulative)} 份`),
+    );
+    tbody.append(row);
+  }
+  table.append(tbody);
+  scroll.append(table);
+  details.append(scroll);
+  body.append(details);
+}
+function collectionCard() {
+  const card = el("section", undefined, "panel collection-card"),
+    heading = el("div", undefined, "section-heading");
+  const title = el("div");
+  title.append(
+    el("h2", "回收趋势"),
+    el("p", "查看新增与累计答卷，了解调查的回收进度。", "muted"),
+  );
+  const label = el("label", "展示时段"),
+    select = el("select");
+  select.id = "collection-period";
+  for (const days of [7, 14, 30]) {
+    const option = el("option", `截至末日最近 ${days} 天`);
+    option.value = days;
+    select.append(option);
+  }
+  select.value = collectionDays;
+  label.append(select);
+  heading.append(title, label);
+  card.append(heading);
+  const body = el("div", undefined, "collection-body");
+  card.append(body);
+  renderCollection(body);
+  select.addEventListener("change", () => {
+    collectionDays = Number(select.value);
+    renderCollection(body);
+  });
   return card;
 }
 function renderOverview() {
@@ -384,24 +617,19 @@ function renderOverview() {
   charts.replaceChildren();
   $("empty-overview").hidden = summaryData.total > 0;
   if (!summaryData.total) return;
-  const byId = (id) => summaryData.questionStats.find((q) => q.id === id);
-  for (const id of ["C01", "U01", "R01", "U02"])
-    charts.append(questionCard(byId(id), undefined, true));
-  charts.append(trendCard());
-  const composition = el("article", undefined, "panel chart-card");
-  composition.append(
-    el("h3", "受访者关系状态"),
+  const heading = el("div", undefined, "overview-heading");
+  heading.append(
+    el("h2", "主题摘要"),
     el(
       "p",
-      `以当前筛选范围的 ${number(summaryData.total)} 份答卷为分母`,
-      "chart-subtitle",
+      "从婚恋想法、现实考虑与支持需求中，提炼当前样本的主要选择。点击摘要可查看原题分布。",
+      "muted",
     ),
   );
-  for (const group of summaryData.composition.route)
-    composition.append(bar(group.label, group.count, group.percent));
-  charts.append(composition);
-  for (const id of ["F02", "H01", "F01", "F03", "H02"])
-    charts.append(questionCard(byId(id), undefined, true));
+  const themes = el("div", undefined, "theme-grid");
+  for (const [index, theme] of summaryData.themes.entries())
+    themes.append(themeCard(theme, index));
+  charts.append(heading, themes, collectionCard());
 }
 function renderQuestionOptions() {
   const previous = $("question-select").value,

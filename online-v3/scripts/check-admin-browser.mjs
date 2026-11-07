@@ -56,11 +56,27 @@ try {
   await page.waitForFunction(
     () => document.querySelector("#stats strong")?.textContent === "31",
   );
-  assert.equal(await page.locator("#overview-charts .chart-card").count(), 11);
+  assert.equal(await page.locator("#overview-charts .theme-card").count(), 3);
+  assert.equal(await page.locator("#overview-charts .chart-card").count(), 0);
+  assert.equal(await page.locator("#overview-charts .theme-metric").count(), 9);
+  assert.match(
+    await page.locator("[data-theme=reality] .theme-summary").innerText(),
+    /并列最多/,
+  );
+  assert.equal(await page.locator("#collection-period").inputValue(), "14");
+  await page.locator("#collection-period").selectOption("7");
+  assert.equal(await page.locator(".daily-trend .trend-day").count(), 7);
+  await page.locator("#collection-period").selectOption("30");
+  assert.equal(await page.locator(".daily-trend .trend-day").count(), 30);
+  assert.equal(await page.locator(".collection-chart svg").count(), 1);
   assert.equal(await page.locator("#question-select option").count(), 41);
   assert.equal(await page.locator("#records tr").count(), 25);
   assert.equal(await page.locator("#password").inputValue(), "");
-  await page.locator("#tab-analysis").click();
+  await page
+    .locator("[data-theme=intention] .theme-metric[data-question=U01]")
+    .click();
+  assert.equal(await page.locator("#panel-analysis").isVisible(), true);
+  assert.equal(await page.locator("#question-select").inputValue(), "U01");
   await page.locator("#question-select").selectOption("D04");
   await page.locator("#next-question").click();
   assert.equal(await page.locator("#question-select").inputValue(), "C01");
@@ -80,10 +96,44 @@ try {
   await page.locator("#next-question").click();
   assert.equal(await page.locator("#question-select").inputValue(), "D02");
   await page.locator("#tab-overview").click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: join(output, "overview-desktop.png"),
     fullPage: true,
   });
+
+  // Trend dates obey the applied scope, including when form edits are pending.
+  await page.locator("#more-filters").evaluate((element) => {
+    element.open = true;
+  });
+  await page.locator("#start").fill("2026-11-01");
+  await page.locator("#end").fill("2026-11-07");
+  await page.locator("#filters button[type=submit]").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector(".collection-range")
+      ?.textContent.startsWith("2026-11-01 至 2026-11-07"),
+  );
+  assert.equal(await page.locator("#collection-period").inputValue(), "30");
+  assert.equal(await page.locator(".daily-trend .trend-day").count(), 7);
+  await page.locator(".collection-details > summary").click();
+  assert.match(
+    await page.locator(".collection-details tbody tr").last().innerText(),
+    /31 份/,
+  );
+  await page.locator("#route").selectOption("M");
+  await page.locator('.daily-trend [data-day="2026-11-07"]').click();
+  await page.waitForFunction(
+    () => document.querySelector("#stats strong")?.textContent === "4",
+  );
+  assert.equal(await page.locator("#route").inputValue(), "");
+  assert.equal(await page.locator("#start").inputValue(), "2026-11-07");
+  assert.equal(await page.locator("#end").inputValue(), "2026-11-07");
+  assert.equal(await page.locator("#panel-records").isVisible(), true);
+  await page.locator("#reset").click();
+  await page.waitForFunction(
+    () => document.querySelector("#stats strong")?.textContent === "31",
+  );
 
   await page.locator("#tab-records").click();
   await page.locator("#next").click();
@@ -112,6 +162,12 @@ try {
     () => document.querySelector("#stats strong")?.textContent === "4",
   );
   assert.equal(await page.locator("#records tr").count(), 4);
+  assert.equal(
+    await page
+      .locator("[data-theme=intention] .theme-metric[data-question=U01] strong")
+      .textContent(),
+    "—",
+  );
   await page.locator("#reset").click();
   await page.waitForFunction(
     () => document.querySelector("#stats strong")?.textContent === "31",
@@ -171,6 +227,7 @@ try {
   );
   await page.locator("#tab-overview").click();
   assert.equal(await page.locator("#empty-overview").isVisible(), true);
+  assert.equal(await page.locator(".theme-card").count(), 0);
   await page.screenshot({ path: join(output, "empty-desktop.png") });
   await page.locator("#reset").click();
   await page.waitForFunction(
@@ -252,6 +309,7 @@ try {
     }
     if (width === 390) {
       await page.locator("#tab-overview").click();
+      await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({
         path: join(output, "overview-mobile.png"),
         fullPage: true,

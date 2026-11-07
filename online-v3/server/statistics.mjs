@@ -219,6 +219,108 @@ function composition(rows, group, labels) {
   });
 }
 
+export function buildThemes(questions) {
+  const byId = new Map(questions.map((question) => [question.id, question]));
+  function base(id) {
+    const question = byId.get(id);
+    return {
+      questionId: id,
+      valid: question.valid,
+      note: question.nonMarriedOnly ? "明确目前非已婚者" : "本题有效选择人数",
+    };
+  }
+  function share(id, label, values, invert = false) {
+    const question = byId.get(id),
+      counts = question.variants[0].counts;
+    const selected = counts
+      .filter((option) => values.includes(option.value))
+      .reduce((sum, option) => sum + option.count, 0);
+    const count = invert ? question.valid - selected : selected;
+    return {
+      ...base(id),
+      kind: "share",
+      label,
+      count,
+      percent: ratio(count, question.valid),
+    };
+  }
+  function leaders(id, label) {
+    const counts = byId.get(id).variants[0].counts;
+    const count = Math.max(0, ...counts.map((option) => option.count));
+    return {
+      ...base(id),
+      kind: "leaders",
+      label,
+      count,
+      percent: ratio(count, byId.get(id).valid),
+      choices: counts
+        .filter((option) => count > 0 && option.count === count)
+        .map(({ value, label }) => ({ value, label })),
+    };
+  }
+  return [
+    {
+      id: "intention",
+      title: "婚恋意愿",
+      summary: leaders("U01", "未来结婚意愿"),
+      metrics: [
+        share("C01", "想拥有稳定亲密关系", ["yes"]),
+        share("U01", "愿意未来结婚", ["yes"]),
+        share("R01", "希望生育或再生育", ["yes"]),
+      ],
+      note: "三个指标各按本题有效人数计算。生育意愿包含已有子女者对再生育的想法。",
+    },
+    {
+      id: "reality",
+      title: "现实考虑",
+      summary: leaders("F02", "考虑结婚时最看重的因素"),
+      metrics: [
+        share("F01", "日常开支压力较大或很大", ["large", "very_large"]),
+        share("F02", "看重经济、居住与工作安排", ["practical"]),
+        share("F03", "感到家人希望自己结婚", ["want"]),
+      ],
+      note: "较大压力合计“压力较大”和“压力很大”。结婚考虑为多选；家庭期待表示感知到的态度方向。",
+    },
+    {
+      id: "support",
+      title: "支持需求",
+      summary: leaders("H01", "婚恋支持需求"),
+      metrics: [
+        share("H01", "选择至少一项支持需求", ["none"], true),
+        share("H01", "目前没有需求", ["none"]),
+        leaders("H02", "最常见的了解或交流选择"),
+      ],
+      note: "有需求人数按人去重，不累计多选次数；不含“目前没有需求”、拒答或未答。",
+    },
+  ];
+}
+
+export function buildCollection(rows, filters = {}, now = new Date()) {
+  const end = filters.end || dayOf(now),
+    endTime = Date.parse(end + "T12:00:00+08:00");
+  const start = [dayOf(endTime - 29 * 86400000), filters.start || ""]
+    .sort()
+    .at(-1);
+  const counts = new Map();
+  let openingTotal = 0;
+  for (const row of rows) {
+    const day = dayOf(row.createdAt);
+    if (day > end) continue;
+    if (day < start) openingTotal++;
+    else counts.set(day, (counts.get(day) || 0) + 1);
+  }
+  let cumulative = openingTotal;
+  const days = [];
+  for (let offset = 29; offset >= 0; offset--) {
+    const day = dayOf(endTime - offset * 86400000);
+    if (day < start) continue;
+    const count = counts.get(day) || 0;
+    cumulative += count;
+    days.push({ day, count, cumulative });
+  }
+  return { start, end, openingTotal, totalThroughEnd: cumulative, days };
+}
+
 export function buildSummary(rows, filters = {}, now = new Date()) {
   const today = dayOf(now),
     byDay = new Map();
@@ -266,6 +368,8 @@ export function buildSummary(rows, filters = {}, now = new Date()) {
       gender: composition(rows, "gender", GENDER_NAMES),
     },
     questionStats: questions,
+    themes: buildThemes(questions),
+    collection: buildCollection(rows, filters, now),
   };
 }
 
